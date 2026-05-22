@@ -191,7 +191,10 @@ table.lb .total { color: var(--clay-dark); font-weight: 700; }
 .welcome-hero .ball { font-size: 92px; line-height: 1; }
 .welcome-hero .hero-logo {
   display: block; margin: 4px auto 0;
-  max-width: 72%; max-height: 140px; width: auto; height: auto;
+  max-width: 72%; max-height: 116px; width: auto; height: auto;
+}
+@media (max-width: 600px) {
+  .welcome-hero .hero-logo { max-height: 84px; }
 }
 .welcome-hero h1.title {
   font-family: 'Manrope', system-ui, sans-serif;
