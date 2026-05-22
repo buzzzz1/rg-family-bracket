@@ -144,6 +144,13 @@ async function initFirebase() {
         state.myPicks = { men: normalizePicks(mine.men), women: normalizePicks(mine.women) };
         if (!state.userName) state.userName = mine.name;
         if (mine.pin) state.userPin = mine.pin;
+      } else {
+        // Saved session points to an entry that no longer exists — sign out
+        // cleanly and fall back to the welcome screen.
+        state.userId = null;
+        state.userName = null;
+        localStorage.removeItem('rg26_uid');
+        localStorage.removeItem('rg26_name');
       }
       state.myPicksLoaded = true;
     }
