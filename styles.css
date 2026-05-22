@@ -16,7 +16,7 @@ html, body {
   margin: 0;
   background: var(--cream);
   color: var(--ink);
-  font-family: 'Outfit', 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
 }
 
@@ -56,9 +56,9 @@ header.app-head {
 }
 .brand { display: flex; flex-direction: column; gap: 4px; }
 .brand h1.title {
-  font-family: 'Archivo Black', system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif;
   font-size: 24px; line-height: 1.15; margin: 0;
-  color: var(--clay-dark); font-weight: 400; letter-spacing: -0.5px;
+  color: var(--clay-dark); font-weight: 800; letter-spacing: -0.4px;
 }
 .subtitle {
   font-family: 'Young Serif', Georgia, serif;
@@ -194,9 +194,9 @@ table.lb .total { color: var(--clay-dark); font-weight: 700; }
   max-width: 72%; max-height: 140px; width: auto; height: auto;
 }
 .welcome-hero h1.title {
-  font-family: 'Archivo Black', system-ui, sans-serif;
-  font-size: 34px; line-height: 1.16; font-weight: 400;
-  color: var(--clay-dark); margin: 14px 0 6px; letter-spacing: -0.5px;
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 34px; line-height: 1.16; font-weight: 800;
+  color: var(--clay-dark); margin: 28px 0 14px; letter-spacing: -0.4px;
 }
 .welcome-hero .subtitle { font-size: 26px; margin-bottom: 2px; }
 
