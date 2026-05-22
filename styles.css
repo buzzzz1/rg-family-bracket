@@ -196,10 +196,13 @@ table.lb .total { color: var(--clay-dark); font-weight: 700; }
 }
 .welcome-hero h1.title {
   font-family: 'Manrope', system-ui, sans-serif;
-  font-size: 34px; line-height: 1.16; font-weight: 800;
+  font-size: 42px; line-height: 1.16; font-weight: 800;
   color: var(--clay-dark); margin: 28px 0 14px; letter-spacing: -0.4px;
 }
-.welcome-hero .subtitle { font-size: 26px; margin-bottom: 2px; }
+.welcome-hero .subtitle { font-size: 32px; margin-bottom: 2px; }
+.welcome-hero .hero-tagline {
+  color: var(--ink); font-size: 19px; margin: 10px 0 0;
+}
 
 ol.steps { padding-left: 20px; line-height: 1.6; }
 ol.steps code {

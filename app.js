@@ -558,7 +558,7 @@ function welcomeScreen() {
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
       <div class="subtitle">Roland Garros 2026</div>
-      <p class="muted">Men's &amp; Women's singles predictions</p>
+      <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
     </div>`;
   return hero + (state.pendingName ? pinPanel() : namePanel());
 }
