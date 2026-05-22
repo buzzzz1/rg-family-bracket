@@ -712,12 +712,15 @@ window.rgLogoFallback = function (img) {
   img.replaceWith(ball);
 };
 
-// A tennis ball drawn as inline SVG so it looks identical on every platform
-// (the 🎾 emoji renders as a racket on Windows).
-const BALL_SVG = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
-  '<circle cx="50" cy="50" r="44" fill="#d6e542"/>' +
-  '<path d="M33 12 Q11 50 33 88" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>' +
-  '<path d="M67 12 Q89 50 67 88" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>' +
+// Inline tennis-ball SVG so it looks identical on every platform — the 🎾
+// emoji renders as a racket on Windows. Ball artwork adapted from Twemoji
+// (github.com/jdecked/twemoji), licensed CC-BY 4.0.
+const BALL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">' +
+  '<circle fill="#c3d63a" cx="18" cy="18" r="18"/>' +
+  '<path fill="#dce884" d="M26 18c0 6.048 2.792 10.221 5.802 11.546C34.42 26.42 36 22.396 36 18c0-4.396-1.58-8.42-4.198-11.546C28.792 7.779 26 11.952 26 18z"/>' +
+  '<path fill="#FFF" d="M27 18c0-6.048 1.792-10.221 4.802-11.546-.445-.531-.926-1.028-1.428-1.504C27.406 6.605 25 10.578 25 18c0 7.421 2.406 11.395 5.374 13.05.502-.476.984-.973 1.428-1.504C28.792 28.221 27 24.048 27 18z"/>' +
+  '<path fill="#dce884" d="M10 18c0-6.048-2.792-10.22-5.802-11.546C1.58 9.58 0 13.604 0 18c0 4.396 1.58 8.42 4.198 11.546C7.208 28.22 10 24.048 10 18z"/>' +
+  '<path fill="#FFF" d="M4.198 6.454C7.208 7.78 9 11.952 9 18c0 6.048-1.792 10.22-4.802 11.546.445.531.926 1.027 1.428 1.504C8.593 29.395 11 25.421 11 18c0-7.421-2.406-11.395-5.374-13.049-.502.476-.984.972-1.428 1.503z"/>' +
   '</svg>';
 
 function mountBallRain() {
