@@ -308,7 +308,7 @@ function header() {
   return `
     <header class="app-head">
       <div class="brand">
-        <h1 class="title">🎾 Kiwi House Family Bracket Challenge</h1>
+        <h1 class="title">Kiwi House Family Bracket Challenge</h1>
         <div class="subtitle">Roland Garros 2026</div>
       </div>
       <div class="whoami">Playing as <strong>${esc(state.userName)}</strong>
@@ -377,7 +377,7 @@ function progress(picks) {
   const pct = Math.round((done / TOTAL_PICKS) * 100);
   return `<div class="progress-wrap">
     <div class="progress-bar"><div style="width:${pct}%"></div></div>
-    <div class="progress-label">${done} / ${TOTAL_PICKS} picks made${done === TOTAL_PICKS ? ' — bracket complete! 🎾' : ''}</div>
+    <div class="progress-label">${done} / ${TOTAL_PICKS} picks made${done === TOTAL_PICKS ? ' — bracket complete!' : ''}</div>
   </div>`;
 }
 
@@ -606,7 +606,7 @@ function pinPanel() {
 function setupScreen() {
   return `
     <header class="app-head"><div class="brand">
-      <h1 class="title">🎾 Kiwi House Family Bracket Challenge</h1>
+      <h1 class="title">Kiwi House Family Bracket Challenge</h1>
       <div class="subtitle">Roland Garros 2026</div></div></header>
     <div class="panel">
       <h2>One-time setup needed</h2>
@@ -638,7 +638,7 @@ function errorScreen(err) {
   const perm = /permission|insufficient/i.test(msg);
   return `
     <header class="app-head"><div class="brand">
-      <h1 class="title">🎾 Kiwi House Family Bracket Challenge</h1>
+      <h1 class="title">Kiwi House Family Bracket Challenge</h1>
       <div class="subtitle">Roland Garros 2026</div></div></header>
     <div class="panel">
       <h2>Can't reach the database</h2>
@@ -712,15 +712,25 @@ window.rgLogoFallback = function (img) {
   img.replaceWith(ball);
 };
 
+// A tennis ball drawn as inline SVG so it looks identical on every platform
+// (the 🎾 emoji renders as a racket on Windows).
+const BALL_SVG = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+  '<circle cx="50" cy="50" r="44" fill="#d6e542"/>' +
+  '<path d="M33 12 Q11 50 33 88" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>' +
+  '<path d="M67 12 Q89 50 67 88" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>' +
+  '</svg>';
+
 function mountBallRain() {
   const layer = document.createElement('div');
   layer.className = 'ball-rain';
   layer.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < 16; i++) {
     const b = document.createElement('span');
-    b.textContent = '🎾';
+    b.innerHTML = BALL_SVG;
+    const size = 16 + Math.random() * 30;
     b.style.left = (Math.random() * 96) + 'vw';
-    b.style.fontSize = (16 + Math.random() * 30) + 'px';
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
     b.style.animationDuration = (7 + Math.random() * 9) + 's';
     b.style.animationDelay = (-Math.random() * 16) + 's';
     layer.appendChild(b);
