@@ -33,6 +33,9 @@ const state = {
   userName: localStorage.getItem('rg26_name') || null,
   myPicks: null,            // { men: picks, women: picks }
   myPicksLoaded: false,
+  userPin: null,
+  pendingName: null,        // name chosen on welcome screen, awaiting PIN
+  pinError: null,
   entries: {},              // id -> { id, name, men, women }
   results: { men: emptyPicks(), women: emptyPicks() },
   config: { locked: false },
@@ -140,6 +143,7 @@ async function initFirebase() {
       if (mine) {
         state.myPicks = { men: normalizePicks(mine.men), women: normalizePicks(mine.women) };
         if (!state.userName) state.userName = mine.name;
+        if (mine.pin) state.userPin = mine.pin;
       }
       state.myPicksLoaded = true;
     }
@@ -169,6 +173,7 @@ function saveMyEntry() {
   saveTimer = setTimeout(() => {
     fb.setDoc(fb.doc(db, 'entries', state.userId), {
       name: state.userName,
+      pin: state.userPin || '',
       men: state.myPicks.men,
       women: state.myPicks.women,
       updatedAt: Date.now(),
@@ -202,22 +207,45 @@ function slug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function createUser(name) {
+// Step 2 of sign-in: validate (returning) or set (new) the PIN for the name.
+function submitPin(pin) {
+  const name = state.pendingName;
+  const existing = state.entries[slug(name)];
+  const returning = !!(existing && existing.pin);
+  if (returning) {
+    if (pin === String(existing.pin)) {
+      enterBracket(name, existing.pin);
+    } else {
+      state.pinError = 'Incorrect PIN. Try again, or ask the commissioner to look it up.';
+      render();
+    }
+    return;
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    state.pinError = 'Please choose a 4-digit PIN (numbers only).';
+    render();
+    return;
+  }
+  enterBracket(name, pin);
+}
+
+// Load (or create) the bracket for this name and enter the app.
+function enterBracket(name, pin) {
   const uid = slug(name);
   state.userId = uid;
   state.userName = name;
+  state.userPin = String(pin);
   const existing = state.entries[uid];
-  if (existing) {
-    // Resume an existing bracket saved under this name.
-    state.myPicks = { men: normalizePicks(existing.men), women: normalizePicks(existing.women) };
-  } else {
-    state.myPicks = { men: emptyPicks(), women: emptyPicks() };
-    saveMyEntry();
-  }
+  state.myPicks = existing
+    ? { men: normalizePicks(existing.men), women: normalizePicks(existing.women) }
+    : { men: emptyPicks(), women: emptyPicks() };
   state.myPicksLoaded = true;
+  state.pendingName = null;
+  state.pinError = null;
   localStorage.setItem('rg26_uid', uid);
   localStorage.setItem('rg26_name', name);
   state.view = 'bracket';
+  saveMyEntry();
   render();
 }
 
@@ -483,6 +511,22 @@ function commissionerView() {
   html += `<p class="small muted">Lock the brackets once the tournament starts so picks are final.</p>`;
   html += `</div>`;
 
+  // Player PINs — so the commissioner can help anyone who forgets theirs.
+  const players = Object.values(state.entries).filter(e => e.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  html += `<div class="panel"><h2>Player PINs</h2>
+    <p class="muted small">If someone forgets their PIN, look it up here and tell them.</p>`;
+  if (!players.length) {
+    html += `<p class="muted">No brackets started yet.</p>`;
+  } else {
+    html += `<table class="lb"><thead><tr><th>Name</th><th class="num">PIN</th></tr></thead><tbody>`;
+    players.forEach(e => {
+      html += `<tr><td>${esc(e.name)}</td><td class="num">${esc(e.pin || '—')}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  html += `</div>`;
+
   html += `<div class="panel"><h2>Record results</h2>
     <p class="muted">Tap the actual winner of each match. Tap again to clear. Scores
     update live on the leaderboard.</p>`;
@@ -501,27 +545,53 @@ function commissionerView() {
 
 // ---- welcome / first run ----
 function welcomeScreen() {
-  return `
+  const hero = `
     <div class="welcome-hero">
       <img class="hero-logo" src="logo.png" alt="Roland Garros 2026"
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
       <div class="subtitle">Roland Garros 2026</div>
       <p class="muted">Men's &amp; Women's singles predictions</p>
-    </div>
+    </div>`;
+  return hero + (state.pendingName ? pinPanel() : namePanel());
+}
+
+function namePanel() {
+  return `
     <div class="panel">
       <h2>Select your name to start</h2>
       <p class="muted small">Pick winners through all seven rounds of both draws.
-        Your bracket is saved under your name, so you can fill it in from any
-        phone or computer.</p>
+        Your bracket is saved under your name and protected by a PIN, so you can
+        fill it in from any phone or computer.</p>
       <form data-form="name">
         <label class="field-label" for="player-select">Pick your name from the dropdown</label>
         <select name="name" id="player-select" required>
           <option value="" selected disabled>— Select your name —</option>
           ${[...PLAYERS].sort((a, b) => a.localeCompare(b)).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}
         </select>
-        <button class="btn" type="submit">Start my bracket</button>
+        <button class="btn" type="submit">Continue</button>
       </form>
+    </div>`;
+}
+
+function pinPanel() {
+  const name = state.pendingName;
+  const existing = state.entries[slug(name)];
+  const returning = !!(existing && existing.pin);
+  return `
+    <div class="panel">
+      <h2>${returning ? 'Welcome back, ' + esc(name) : 'Hi ' + esc(name) + '!'}</h2>
+      <p class="muted small">${returning
+        ? 'Enter your 4-digit PIN to open your bracket.'
+        : 'Create a 4-digit PIN — you\'ll use it to open your bracket on any device, so pick something memorable.'}</p>
+      ${state.pinError ? `<div class="banner warn">${esc(state.pinError)}</div>` : ''}
+      <form data-form="pin">
+        <label class="field-label" for="pin-input">${returning ? 'Your PIN' : 'Choose a 4-digit PIN'}</label>
+        <input type="text" inputmode="numeric" name="pin" id="pin-input" maxlength="4"
+          pattern="[0-9]*" placeholder="4 digits" autocomplete="off" />
+        <button class="btn" type="submit">${returning ? 'Open my bracket' : 'Create my bracket'}</button>
+      </form>
+      <p class="small"><a data-action="pick-different-name">← Choose a different name</a></p>
     </div>`;
 }
 
@@ -606,6 +676,7 @@ appEl.addEventListener('click', e => {
   else if (a === 'back') { state.viewingEntryId = null; render(); }
   else if (a === 'toggle-lock') { setLocked(!state.config.locked); }
   else if (a === 'new-bracket') { newBracket(); }
+  else if (a === 'pick-different-name') { state.pendingName = null; state.pinError = null; render(); }
 });
 
 appEl.addEventListener('submit', e => {
@@ -613,8 +684,10 @@ appEl.addEventListener('submit', e => {
   const form = e.target.dataset.form;
   if (form === 'name') {
     const name = e.target.name.value;
-    if (name) createUser(name);
+    if (name) { state.pendingName = name; state.pinError = null; render(); }
     else alert('Please pick your name from the dropdown.');
+  } else if (form === 'pin') {
+    submitPin(e.target.pin.value.trim());
   } else if (form === 'commish') {
     if (e.target.pw.value === COMMISSIONER_PASSWORD) { state.commish = true; render(); }
     else alert('Incorrect password.');

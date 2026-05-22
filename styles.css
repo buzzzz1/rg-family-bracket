@@ -167,6 +167,7 @@ select { cursor: pointer; }
   display: block; font-size: 13px; font-weight: 600; color: var(--ink);
   margin-top: 4px;
 }
+a[data-action] { color: var(--clay); cursor: pointer; text-decoration: underline; }
 
 /* ---- leaderboard ---- */
 table.lb { width: 100%; border-collapse: collapse; font-size: 14px; }
