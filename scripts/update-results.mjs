@@ -22,6 +22,7 @@ import { firebaseConfig } from '../firebase-config.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const ROUND_SIZES = [64, 32, 16, 8, 4, 2, 1];
+const ROUND_SHORT = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'Final'];
 
 // --- name matching -------------------------------------------------------
 function norm(s) {
@@ -100,6 +101,46 @@ function toValue(v) {
   return { mapValue: { fields } };
 }
 
+// --- diff against the currently stored results (for the change log) -----
+async function fetchExistingResults() {
+  const { projectId, apiKey } = firebaseConfig;
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}` +
+    `/databases/(default)/documents/meta/results?key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data.fields) return null;
+  const fromMap = (m) => {
+    if (!m || !m.mapValue || !m.mapValue.fields) return null;
+    const out = {};
+    for (const r of Object.keys(m.mapValue.fields)) {
+      const arr = (m.mapValue.fields[r].arrayValue && m.mapValue.fields[r].arrayValue.values) || [];
+      out[r] = arr.map(v => v.integerValue !== undefined ? Number(v.integerValue) : null);
+    }
+    return out;
+  };
+  return {
+    men: fromMap(data.fields.men) || emptyPicks(),
+    women: fromMap(data.fields.women) || emptyPicks(),
+  };
+}
+
+function diffPicks(oldP, newP, draw, eventLabel) {
+  const lines = [];
+  const nm = (s) => s == null ? '(none)' : draw[s].name;
+  for (let r = 0; r < 7; r++) {
+    const oldArr = (oldP && oldP['r' + r]) || [];
+    const newArr = newP['r' + r];
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const o = oldArr[m] == null ? null : oldArr[m];
+      const n = newArr[m] == null ? null : newArr[m];
+      if (o === n) continue;
+      lines.push(`  ${eventLabel} ${ROUND_SHORT[r]} m${m + 1}: ${nm(o)} → ${nm(n)}`);
+    }
+  }
+  return lines;
+}
+
 // --- main ----------------------------------------------------------------
 async function main() {
   let feed;
@@ -118,6 +159,19 @@ async function main() {
 
   console.log(`Feed: ${menPairs.length} men's pairs, ${womenPairs.length} women's pairs`);
   console.log(`Resolved: men ${countResolved(men)} matches, women ${countResolved(women)} matches`);
+
+  // Change log: diff against what's currently in Firestore so each run
+  // prints exactly which matches were added, changed, or removed.
+  const existing = await fetchExistingResults();
+  const menChanges = diffPicks(existing && existing.men, men, DRAWS.men, "Men's");
+  const womenChanges = diffPicks(existing && existing.women, women, DRAWS.women, "Women's");
+  console.log('Change log since last run:');
+  if (menChanges.length + womenChanges.length === 0) {
+    console.log('  (no changes)');
+  } else {
+    menChanges.forEach(l => console.log(l));
+    womenChanges.forEach(l => console.log(l));
+  }
 
   if (process.argv.includes('--dry-run')) {
     const champ = (draw, p) => p.r6[0] != null ? draw[p.r6[0]].name : '(undecided)';
