@@ -170,6 +170,29 @@ select { cursor: pointer; }
 }
 a[data-action] { color: var(--clay); cursor: pointer; text-decoration: underline; }
 
+/* ---- daily recap + analytics (commissioner) ---- */
+.recap-text {
+  width: 100%; min-height: 320px; padding: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.6;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: #faf6ef; color: var(--ink);
+  resize: vertical; white-space: pre; overflow: auto;
+  box-sizing: border-box;
+}
+.recap-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+h3.analytics-h3 {
+  font-size: 12px; font-weight: 700; margin: 18px 0 6px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px;
+}
+.tag-alive, .tag-out {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle;
+}
+.tag-alive { color: #fff; background: var(--court); }
+.tag-out { color: #fff; background: #b23b3b; }
+
 /* ---- leaderboard ---- */
 table.lb { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.lb th, table.lb td {

@@ -38,6 +38,7 @@ const state = {
   pinError: null,
   entries: {},              // id -> { id, name, men, women }
   results: { men: emptyPicks(), women: emptyPicks() },
+  recapSnapshot: null,        // last sent recap's results snapshot
   config: { locked: false },
   commish: false,
   viewingEntryId: null,
@@ -116,6 +117,350 @@ function hasResults() {
     ROUND_SIZES.some((n, r) => state.results[ev]['r' + r].some(v => v !== null && v !== undefined)));
 }
 
+// ---------------------------------------------------------------------------
+// Analytics + daily-recap helpers
+// ---------------------------------------------------------------------------
+function matchOfSlot(s, r) { return Math.floor(s / Math.pow(2, r + 1)); }
+
+// A slot is still alive if no recorded result on its path contradicts it.
+function isAlive(slot, results) {
+  if (slot === null || slot === undefined) return false;
+  for (let r = 0; r < 7; r++) {
+    const res = results['r' + r][matchOfSlot(slot, r)];
+    if (res !== null && res !== undefined && res !== slot) return false;
+  }
+  return true;
+}
+
+function entryMaxPossible(picks, results) {
+  let total = 0;
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const pick = picks['r' + r][m];
+      if (pick === null) continue;
+      const res = results['r' + r][m];
+      if (res !== null && res !== undefined) {
+        if (pick === res) total += ROUND_POINTS[r];
+      } else if (isAlive(pick, results)) {
+        total += ROUND_POINTS[r];
+      }
+    }
+  }
+  return total;
+}
+
+function roundAccuracy(picks, results) {
+  const out = [];
+  for (let r = 0; r < 7; r++) {
+    let correct = 0, played = 0;
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const res = results['r' + r][m];
+      if (res !== null && res !== undefined) {
+        played++;
+        if (picks['r' + r][m] === res) correct++;
+      }
+    }
+    out.push({ correct, played });
+  }
+  return out;
+}
+
+// All upsets in the current results for one event.
+function getUpsets(event) {
+  const draw = DRAWS[event], results = state.results[event];
+  const out = [];
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = results['r' + r][m];
+      if (w === null || w === undefined) continue;
+      let a, b;
+      if (r === 0) { a = 2 * m; b = 2 * m + 1; }
+      else { a = results['r' + (r - 1)][2 * m]; b = results['r' + (r - 1)][2 * m + 1]; }
+      if (a === null || b === null) continue;
+      const loser = w === a ? b : a;
+      const ws = draw[w].seed || 99, ls = draw[loser].seed || 99;
+      const gap = ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls));
+      if (gap > 0) out.push({ event, r, m, winner: w, loser, gap });
+    }
+  }
+  return out.sort((a, b) => b.gap - a.gap);
+}
+
+// Matches whose result changed (or was newly set) vs the snapshot.
+function diffTodayMatches(current, snapshot, event) {
+  const out = [];
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const cur = current['r' + r][m];
+      const snap = snapshot ? snapshot['r' + r][m] : null;
+      if (cur !== snap && cur !== null && cur !== undefined) {
+        let a, b;
+        if (r === 0) { a = 2 * m; b = 2 * m + 1; }
+        else { a = current['r' + (r - 1)][2 * m]; b = current['r' + (r - 1)][2 * m + 1]; }
+        const loser = cur === a ? b : a;
+        out.push({ event, r, m, winner: cur, loser });
+      }
+    }
+  }
+  return out;
+}
+
+// Decorated player label for the recap (includes seed in parens if seeded).
+function recapName(draw, slot) {
+  const p = draw[slot];
+  return p.seed ? `${p.name} (${p.seed})` : p.name;
+}
+
+function generateRecapText() {
+  const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
+  const todayMen = diffTodayMatches(state.results.men, snap.men, 'men');
+  const todayWomen = diffTodayMatches(state.results.women, snap.women, 'women');
+  const todayAll = [...todayMen, ...todayWomen];
+
+  const entries = Object.values(state.entries).filter(e => e.name).map(e => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    return {
+      id: e.id, name: e.name, men: mp, women: wp,
+      total: score(mp, state.results.men).total + score(wp, state.results.women).total,
+    };
+  }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+  const todayPoints = {}, todayCorrect = {};
+  entries.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
+  for (const t of todayAll) {
+    for (const e of entries) {
+      if (e[t.event]['r' + t.r][t.m] === t.winner) {
+        todayPoints[e.id] += ROUND_POINTS[t.r];
+        todayCorrect[e.id]++;
+      }
+    }
+  }
+
+  const lines = [];
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  lines.push(`🎾 Kiwi House Bracket — ${dateStr} recap`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+  lines.push('🏆 Standings');
+  entries.slice(0, 5).forEach((e, i) => lines.push(`   ${i + 1}. ${e.name} — ${e.total}`));
+  lines.push('');
+
+  if (todayAll.length === 0) {
+    lines.push('(No new results since the last recap.)');
+  } else {
+    const ranked = entries.slice().sort((a, b) => todayPoints[b.id] - todayPoints[a.id]);
+    const mover = ranked[0];
+    if (mover && todayPoints[mover.id] > 0) {
+      lines.push(`📈 Mover today: ${mover.name} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
+    }
+    const maxCorrect = Math.max(...Object.values(todayCorrect));
+    if (maxCorrect > 0) {
+      const tops = entries.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
+      const sameAsMover = mover && tops.length === 1 && tops[0] === mover.name && todayPoints[mover.id] > 0;
+      if (!sameAsMover) {
+        lines.push(`🎯 Best record today: ${tops.join(', ')} (${maxCorrect}/${todayAll.length})`);
+      }
+    }
+    const todayUpsets = todayAll.map(t => {
+      const draw = DRAWS[t.event];
+      const ws = draw[t.winner].seed || 99, ls = draw[t.loser].seed || 99;
+      const gap = ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls));
+      return { ...t, gap };
+    }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
+    if (todayUpsets.length) {
+      const top = todayUpsets[0], draw = DRAWS[top.event];
+      const whoHad = entries.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
+      const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
+        : whoHad.length === 1 ? `only ${whoHad[0]} had it`
+        : `${whoHad.length} of you had it`;
+      lines.push(`😱 Upset of the day: ${recapName(draw, top.winner)} d. ${recapName(draw, top.loser)} — ${sawIt}`);
+    }
+    let bold = null;
+    for (const t of todayAll) {
+      const wPickers = entries.filter(e => e[t.event]['r' + t.r][t.m] === t.winner);
+      const lPickers = entries.filter(e => e[t.event]['r' + t.r][t.m] === t.loser);
+      if (wPickers.length >= 1 && wPickers.length <= 2 && lPickers.length >= 3) {
+        if (!bold || wPickers.length < bold.w) {
+          bold = { t, w: wPickers.length, who: wPickers.map(e => e.name) };
+        }
+      }
+    }
+    if (bold) {
+      const draw = DRAWS[bold.t.event];
+      lines.push(`⭐ Bold call: ${bold.who.join(' & ')} — ${draw[bold.t.winner].name} over ${draw[bold.t.loser].name}`);
+    }
+    const champLosses = [];
+    for (const e of entries) {
+      const mch = e.men.r6[0], wch = e.women.r6[0];
+      if (mch !== null && isAlive(mch, snap.men) && !isAlive(mch, state.results.men)) {
+        champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
+      }
+      if (wch !== null && isAlive(wch, snap.women) && !isAlive(wch, state.results.women)) {
+        champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
+      }
+    }
+    if (champLosses.length) {
+      lines.push(`💀 Champion pick down: ${champLosses.join('; ')}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('🏆 Champions still alive');
+  for (const ev of ['men', 'women']) {
+    const draw = DRAWS[ev], tally = {};
+    for (const e of entries) {
+      const c = e[ev].r6[0];
+      if (c === null || !isAlive(c, state.results[ev])) continue;
+      const n = draw[c].name;
+      tally[n] = (tally[n] || 0) + 1;
+    }
+    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    const labelText = ev === 'men' ? 'Men' : 'Women';
+    if (sorted.length === 0) {
+      lines.push(`   ${labelText}: nobody's champion still in 😱`);
+    } else {
+      lines.push(`   ${labelText}: ${sorted.map(([n, c]) => `${n} (${c})`).join(', ')}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function advanceRecap() {
+  if (!db) return;
+  fb.setDoc(fb.doc(db, 'meta', 'recap_snapshot'), {
+    men: state.results.men,
+    women: state.results.women,
+    takenAt: Date.now(),
+  }).catch(err => alert('Could not save recap snapshot: ' + err.message));
+}
+
+async function copyRecap() {
+  const text = generateRecapText();
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Recap copied to clipboard!');
+  } catch (e) {
+    const ta = document.querySelector('.recap-text');
+    if (ta) { ta.focus(); ta.select(); }
+    alert("Couldn't auto-copy — the recap text is selected; press Cmd/Ctrl+C.");
+  }
+}
+
+// ---- commissioner panels: recap + analytics ----
+function commissionerRecapPanel() {
+  const recapText = generateRecapText();
+  let html = `<div class="panel"><h2>Daily recap</h2>
+    <p class="muted small">A shareable summary built from the results that have
+      changed since the last recap. Copy it into your family chat, then mark it
+      as sent so the next recap diffs from this point.</p>`;
+  html += `<textarea class="recap-text" readonly rows="22">${esc(recapText)}</textarea>`;
+  html += `<div class="recap-actions">
+    <button class="btn" data-action="copy-recap">Copy recap</button>
+    <button class="btn ghost" data-action="advance-recap">Mark recap as sent (advance day)</button>
+  </div>`;
+  if (state.recapSnapshot && state.recapSnapshot.takenAt) {
+    const when = new Date(state.recapSnapshot.takenAt)
+      .toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+    html += `<p class="small muted" style="margin-top:8px">Last advanced: ${esc(when)}</p>`;
+  } else {
+    html += `<p class="small muted" style="margin-top:8px">No prior recap yet — diff counts from the start of the tournament.</p>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function commissionerAnalyticsPanel() {
+  const allEntries = Object.values(state.entries).filter(e => e.name).map(e => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    const sm = score(mp, state.results.men).total;
+    const sw = score(wp, state.results.women).total;
+    return {
+      id: e.id, name: e.name, men: mp, women: wp,
+      score: sm + sw,
+      max: entryMaxPossible(mp, state.results.men) + entryMaxPossible(wp, state.results.women),
+      ra: { men: roundAccuracy(mp, state.results.men), women: roundAccuracy(wp, state.results.women) },
+    };
+  }).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  let html = `<div class="panel"><h2>Analytics</h2>`;
+
+  // Bracket health
+  html += `<h3 class="analytics-h3">Bracket health</h3>`;
+  if (allEntries.length === 0) {
+    html += `<p class="muted small">No brackets yet.</p>`;
+  } else {
+    html += `<table class="lb"><thead><tr><th>Name</th>
+      <th class="num">Score</th><th class="num">Max possible</th></tr></thead><tbody>`;
+    allEntries.forEach(e => {
+      html += `<tr><td>${esc(e.name)}</td>
+        <td class="num total">${e.score}</td>
+        <td class="num muted">${e.max}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // Round accuracy
+  html += `<h3 class="analytics-h3">Round accuracy (correct / played, M+W combined)</h3>`;
+  if (allEntries.length === 0 || !hasResults()) {
+    html += `<p class="muted small">Records appear once results come in.</p>`;
+  } else {
+    html += `<table class="lb"><thead><tr><th>Name</th>` +
+      ROUND_SHORT.map(s => `<th class="num">${s}</th>`).join('') + `</tr></thead><tbody>`;
+    allEntries.forEach(e => {
+      html += `<tr><td>${esc(e.name)}</td>`;
+      for (let r = 0; r < 7; r++) {
+        const c = e.ra.men[r].correct + e.ra.women[r].correct;
+        const p = e.ra.men[r].played + e.ra.women[r].played;
+        html += `<td class="num">${p ? c + '/' + p : '—'}</td>`;
+      }
+      html += `</tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // Champion-pick survival
+  html += `<h3 class="analytics-h3">Champion picks</h3>`;
+  if (allEntries.length === 0) {
+    html += `<p class="muted small">No champion picks yet.</p>`;
+  } else {
+    html += `<table class="lb"><thead><tr><th>Player</th><th>Men's pick</th><th>Women's pick</th></tr></thead><tbody>`;
+    allEntries.forEach(e => {
+      const mch = e.men.r6[0], wch = e.women.r6[0];
+      const mAlive = mch !== null ? isAlive(mch, state.results.men) : null;
+      const wAlive = wch !== null ? isAlive(wch, state.results.women) : null;
+      const tag = (alive) => alive === null ? '' : (alive ? '<span class="tag-alive">alive</span>' : '<span class="tag-out">out</span>');
+      html += `<tr><td>${esc(e.name)}</td>
+        <td>${mch !== null ? esc(DRAWS.men[mch].name) : '—'} ${tag(mAlive)}</td>
+        <td>${wch !== null ? esc(DRAWS.women[wch].name) : '—'} ${tag(wAlive)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // Upset scorecard (top 10 by gap)
+  html += `<h3 class="analytics-h3">Upset scorecard</h3>`;
+  const upsets = [
+    ...getUpsets('men').map(u => ({ ...u, evLabel: 'M' })),
+    ...getUpsets('women').map(u => ({ ...u, evLabel: 'W' })),
+  ].sort((a, b) => b.gap - a.gap).slice(0, 10);
+  if (upsets.length === 0) {
+    html += `<p class="muted small">No upsets yet — favorites are holding.</p>`;
+  } else {
+    html += `<table class="lb"><thead><tr><th>Match</th><th>Got it</th></tr></thead><tbody>`;
+    upsets.forEach(u => {
+      const draw = DRAWS[u.event];
+      const wn = recapName(draw, u.winner), ln = recapName(draw, u.loser);
+      const had = allEntries.filter(e => e[u.event]['r' + u.r][u.m] === u.winner).map(e => e.name);
+      html += `<tr><td class="small">${u.evLabel} ${ROUND_SHORT[u.r]}: ${esc(wn)} d. ${esc(ln)}</td>
+        <td class="small">${had.length ? esc(had.join(', ')) : '<span class="muted">nobody</span>'}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 function label(draw, slot) {
   if (slot === null || slot === undefined) return 'TBD';
   const p = draw[slot];
@@ -169,6 +514,16 @@ async function initFirebase() {
 
   fb.onSnapshot(fb.doc(db, 'meta', 'config'), d => {
     state.config = d.exists() ? { locked: !!d.data().locked } : { locked: false };
+    render();
+  });
+
+  fb.onSnapshot(fb.doc(db, 'meta', 'recap_snapshot'), d => {
+    const data = d.exists() ? d.data() : null;
+    state.recapSnapshot = data ? {
+      men: normalizePicks(data.men),
+      women: normalizePicks(data.women),
+      takenAt: data.takenAt || null,
+    } : null;
     render();
   });
 }
@@ -547,6 +902,10 @@ function commissionerView() {
       <div class="name">${champ !== null ? esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
   }
   html += `</div>`;
+
+  html += commissionerRecapPanel();
+  html += commissionerAnalyticsPanel();
+
   return html;
 }
 
@@ -684,6 +1043,10 @@ appEl.addEventListener('click', e => {
   else if (a === 'toggle-lock') { setLocked(!state.config.locked); }
   else if (a === 'new-bracket') { newBracket(); }
   else if (a === 'pick-different-name') { state.pendingName = null; state.pinError = null; render(); }
+  else if (a === 'copy-recap') { copyRecap(); }
+  else if (a === 'advance-recap') {
+    if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
+  }
 });
 
 appEl.addEventListener('submit', e => {
