@@ -1,1 +1,46 @@
-{"men":[],"women":[]}
+{
+  "men": [
+    ["N. Djokovic", "G. Mpetshi Perricard"],
+    ["A. Zverev", "B. Bonzi"],
+    ["N. Basavareddy", "T. Fritz"],
+    ["J. Fonseca", "L. Pavlovic"],
+    ["F. Cina", "R. Opelka"],
+    ["L. Sonego", "PH. Herbert"],
+    ["A. Davidovich Fokina", "D. Dzumhur"],
+    ["N. Borges", "TM. Etcheverry"],
+    ["Q. Halys", "M. Bellucci"],
+    ["T. Machac", "Z. Bergs"],
+    ["J. Mensik", "T. Droguet"],
+    ["K. Khachanov", "A. Gea"],
+    ["M. Kecmanovic", "F. Marozsan"],
+    ["A. Blockx", "C. Wong"],
+    ["V. Royer", "H. Dellien"],
+    ["D. Prizmic", "M. Zheng"],
+    ["J. Duckworth", "G. Diallo"],
+    ["H. Medjedovic", "Y. Hanfmann"],
+    ["TA. Tirante", "P. Llamas Ruiz"],
+    ["M. Trungelliti", "K. Jacquet"]
+  ],
+  "women": [
+    ["M. Andreeva", "F. Ferro"],
+    ["H. Baptiste", "B. Krejcikova"],
+    ["S. Sierra", "E. Raducanu"],
+    ["B. Bencic", "S. Kraus"],
+    ["M. Kostyuk", "O. Selekhmeteva"],
+    ["F. Jones", "B. Haddad Maia"],
+    ["C. Mcnally", "A. Tomljanovic"],
+    ["L. Tagger", "X. Wang"],
+    ["S. Bejlek", "S. Stephens"],
+    ["S. Cirstea", "K. Efremova"],
+    ["M. Linette", "T. Valentova"],
+    ["M. Bouzkova", "L. Bronzetti"],
+    ["D. Snigur", "C. Tauson"],
+    ["K. Volynets", "C. Burel"],
+    ["M. Frech", "E. G. Ruse"],
+    ["X. Wang", "D. Kovinic"],
+    ["Y. Starodubtseva", "A. Blinkova"],
+    ["T. Korpatsch", "S. Sorribes Tormo"],
+    ["P. Stearns", "S. Kenin"],
+    ["M. Bassols Ribera", "E. Arango"]
+  ]
+}
