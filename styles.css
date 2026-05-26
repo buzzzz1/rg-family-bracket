@@ -192,6 +192,8 @@ h3.analytics-h3 {
 }
 .tag-alive { color: #fff; background: var(--court); }
 .tag-out { color: #fff; background: #b23b3b; }
+.recap-list { margin: 6px 0 12px; padding-left: 22px; line-height: 1.55; }
+.recap-list li { margin: 2px 0; }
 
 /* ---- leaderboard ---- */
 table.lb { width: 100%; border-collapse: collapse; font-size: 14px; }

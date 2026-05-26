@@ -205,6 +205,58 @@ function diffTodayMatches(current, snapshot, event) {
   return out;
 }
 
+// All played matches (for "overall" family stats).
+function playedMatchesIn(results, event) {
+  const out = [];
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = results['r' + r][m];
+      if (w !== null && w !== undefined) out.push({ event, r, m, winner: w });
+    }
+  }
+  return out;
+}
+
+function allPlayedMatches() {
+  return [
+    ...playedMatchesIn(state.results.men, 'men'),
+    ...playedMatchesIn(state.results.women, 'women'),
+  ];
+}
+
+// Aggregate family-wide stats across a set of {event,r,m,winner} matches.
+// Returns total picks, correct picks, per-round breakdown, unanimous lists,
+// and the hardest/easiest match for the family.
+function familyStats(entries, matches) {
+  let total = 0, correct = 0;
+  const byRound = ROUND_SIZES.map(() => ({ correct: 0, played: 0 }));
+  const unanimousCorrect = [], unanimousWrong = [];
+  let hardest = null, easiest = null;
+  for (const t of matches) {
+    let pickCount = 0, correctCount = 0;
+    let firstPick = null, allSame = true;
+    for (const e of entries) {
+      const p = e[t.event]['r' + t.r][t.m];
+      if (p === null || p === undefined) continue;
+      pickCount++; total++;
+      byRound[t.r].played++;
+      if (firstPick === null) firstPick = p;
+      else if (p !== firstPick) allSame = false;
+      if (p === t.winner) { correct++; correctCount++; byRound[t.r].correct++; }
+    }
+    if (pickCount > 0 && allSame) {
+      if (firstPick === t.winner) unanimousCorrect.push({ ...t, familyPick: firstPick });
+      else unanimousWrong.push({ ...t, familyPick: firstPick });
+    }
+    if (pickCount > 0) {
+      const rec = { ...t, correctCount, pickCount };
+      if (!hardest || correctCount < hardest.correctCount) hardest = rec;
+      if (!easiest || correctCount > easiest.correctCount) easiest = rec;
+    }
+  }
+  return { total, correct, byRound, unanimousCorrect, unanimousWrong, hardest, easiest };
+}
+
 // Decorated player label for the recap (includes seed in parens if seeded).
 function recapName(draw, slot) {
   const p = draw[slot];
@@ -302,6 +354,20 @@ function generateRecapText() {
     if (champLosses.length) {
       lines.push(`💀 Champion pick down: ${champLosses.join('; ')}`);
     }
+
+    // Family-wide scorecard for today's matches.
+    const todayFam = familyStats(entries, todayAll);
+    if (todayFam.total > 0) {
+      const pct = Math.round(todayFam.correct / todayFam.total * 100);
+      const parts = [`${pct}% (${todayFam.correct}/${todayFam.total})`];
+      if (todayFam.unanimousCorrect.length) parts.push(`${todayFam.unanimousCorrect.length} unanimous right`);
+      if (todayFam.unanimousWrong.length) parts.push(`${todayFam.unanimousWrong.length} unanimous wrong`);
+      lines.push(`📊 Family today: ${parts.join(' · ')}`);
+      if (todayFam.unanimousWrong.length) {
+        const u = todayFam.unanimousWrong[0];
+        lines.push(`   (oops — we all picked ${DRAWS[u.event][u.familyPick].name})`);
+      }
+    }
   }
 
   lines.push('');
@@ -383,6 +449,53 @@ function commissionerAnalyticsPanel() {
   }).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
   let html = `<div class="panel"><h2>Analytics</h2>`;
+
+  // Family scorecard — collective stats across everyone's picks.
+  const fam = familyStats(allEntries, allPlayedMatches());
+  html += `<h3 class="analytics-h3">Family scorecard</h3>`;
+  if (fam.total === 0) {
+    html += `<p class="muted small">No played matches yet.</p>`;
+  } else {
+    const pct = Math.round(fam.correct / fam.total * 100);
+    html += `<p>Overall: <strong>${fam.correct} / ${fam.total}</strong> picks right
+      · <strong class="total">${pct}%</strong></p>`;
+    html += `<table class="lb"><thead><tr><th>Round</th>
+      <th class="num">Correct</th><th class="num">Played</th><th class="num">%</th></tr></thead><tbody>`;
+    for (let r = 0; r < 7; r++) {
+      if (fam.byRound[r].played === 0) continue;
+      const p = Math.round(fam.byRound[r].correct / fam.byRound[r].played * 100);
+      html += `<tr><td>${ROUND_SHORT[r]}</td>
+        <td class="num">${fam.byRound[r].correct}</td>
+        <td class="num">${fam.byRound[r].played}</td>
+        <td class="num">${p}%</td></tr>`;
+    }
+    html += `</tbody></table>`;
+
+    if (fam.unanimousCorrect.length) {
+      html += `<h3 class="analytics-h3">Unanimous right — we all got it (${fam.unanimousCorrect.length})</h3>`;
+      html += `<ul class="recap-list small">`;
+      fam.unanimousCorrect.slice(0, 15).forEach(u => {
+        const draw = DRAWS[u.event];
+        const ev = u.event === 'men' ? 'M' : 'W';
+        html += `<li>${ev} ${ROUND_SHORT[u.r]}: ${esc(draw[u.winner].name)}</li>`;
+      });
+      if (fam.unanimousCorrect.length > 15) {
+        html += `<li class="muted">…and ${fam.unanimousCorrect.length - 15} more</li>`;
+      }
+      html += `</ul>`;
+    }
+    if (fam.unanimousWrong.length) {
+      html += `<h3 class="analytics-h3">Unanimous wrong — we all whiffed (${fam.unanimousWrong.length})</h3>`;
+      html += `<ul class="recap-list small">`;
+      fam.unanimousWrong.forEach(u => {
+        const draw = DRAWS[u.event];
+        const ev = u.event === 'men' ? 'M' : 'W';
+        html += `<li>${ev} ${ROUND_SHORT[u.r]}: we all picked ${esc(draw[u.familyPick].name)},
+          but <strong>${esc(draw[u.winner].name)}</strong> won</li>`;
+      });
+      html += `</ul>`;
+    }
+  }
 
   // Bracket health
   html += `<h3 class="analytics-h3">Bracket health</h3>`;
