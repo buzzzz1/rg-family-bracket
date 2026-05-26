@@ -242,7 +242,7 @@ function generateRecapText() {
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
   lines.push('');
   lines.push('🏆 Standings');
-  entries.slice(0, 5).forEach((e, i) => lines.push(`   ${i + 1}. ${e.name} — ${e.total}`));
+  entries.slice(0, 6).forEach((e, i) => lines.push(`   ${i + 1}. ${e.name} — ${e.total}`));
   lines.push('');
 
   if (todayAll.length === 0) {
