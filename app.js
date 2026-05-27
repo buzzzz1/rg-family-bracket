@@ -391,6 +391,201 @@ function generateRecapText() {
   return lines.join('\n');
 }
 
+// Comprehensive tournament-level recap — richer than the daily one. Builds a
+// shareable summary across all results so far (standings, specialists, style
+// profiles, champion status, upsets everyone missed, next-round toss-ups).
+function generateTournamentRecapText() {
+  const entries = Object.values(state.entries).filter(e => e.name).map(e => ({
+    id: e.id, name: e.name,
+    men: normalizePicks(e.men), women: normalizePicks(e.women),
+  }));
+  if (entries.length === 0) return 'No brackets yet.';
+  const N = entries.length;
+
+  const stats = entries.map(e => {
+    const ra_m = roundAccuracy(e.men, state.results.men);
+    const ra_w = roundAccuracy(e.women, state.results.women);
+    return {
+      name: e.name, e, ra_m, ra_w,
+      menCorrect: ra_m.reduce((a, r) => a + r.correct, 0),
+      menPlayed: ra_m.reduce((a, r) => a + r.played, 0),
+      womenCorrect: ra_w.reduce((a, r) => a + r.correct, 0),
+      womenPlayed: ra_w.reduce((a, r) => a + r.played, 0),
+      score: score(e.men, state.results.men).total + score(e.women, state.results.women).total,
+      max: entryMaxPossible(e.men, state.results.men) + entryMaxPossible(e.women, state.results.women),
+      upsets: 0, contrarian: 0, lonely: 0,
+    };
+  }).sort((a, b) => b.score - a.score);
+
+  for (const s of stats) {
+    for (const ev of ['men', 'women']) {
+      const draw = DRAWS[ev];
+      for (let r = 0; r < 7; r++) {
+        for (let m = 0; m < ROUND_SIZES[r]; m++) {
+          const w = state.results[ev]['r' + r][m];
+          if (w === null || w === undefined) continue;
+          if (s.e[ev]['r' + r][m] !== w) continue;
+          let a, b;
+          if (r === 0) { a = 2 * m; b = 2 * m + 1; }
+          else { a = state.results[ev]['r' + (r - 1)][2 * m]; b = state.results[ev]['r' + (r - 1)][2 * m + 1]; }
+          if (a == null || b == null) continue;
+          const loser = w === a ? b : a;
+          const ws = draw[w].seed || 99, ls = draw[loser].seed || 99;
+          if (ls !== 99 && ws > ls) s.upsets++;
+          const winnerPickers = entries.filter(en => en[ev]['r' + r][m] === w).length;
+          if (winnerPickers < N / 2) s.contrarian++;
+          if (winnerPickers === 1) s.lonely++;
+        }
+      }
+    }
+  }
+
+  const playedAll = allPlayedMatches();
+  const fam = familyStats(entries, playedAll);
+  const famPct = fam.total > 0 ? (fam.correct / fam.total * 100).toFixed(1) : '0.0';
+  const menExpert = stats.slice().sort((a, b) => b.menCorrect - a.menCorrect)[0];
+  const womenExpert = stats.slice().sort((a, b) => b.womenCorrect - a.womenCorrect)[0];
+  const eliminated = stats.filter(s => s.max < stats[0].score);
+
+  // Champion tally per event
+  const champTally = { men: {}, women: {} };
+  for (const ev of ['men', 'women']) {
+    for (const e of entries) {
+      const c = e[ev].r6[0];
+      if (c === null || c === undefined) continue;
+      const alive = isAlive(c, state.results[ev]);
+      const name = DRAWS[ev][c].name;
+      if (!champTally[ev][name]) champTally[ev][name] = { alive, count: 0 };
+      champTally[ev][name].count++;
+    }
+  }
+
+  // All-missed matches and unanimous count
+  let unanimousCount = 0;
+  const allMissed = [];
+  for (const t of playedAll) {
+    const correctCount = entries.filter(e => e[t.event]['r' + t.r][t.m] === t.winner).length;
+    if (correctCount === entries.length) unanimousCount++;
+    if (correctCount === 0) allMissed.push(t);
+  }
+
+  // Next active round per event + division
+  function nextActiveRound(results) {
+    for (let r = 0; r < 7; r++) {
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (results['r' + r][m] !== null && results['r' + r][m] !== undefined) continue;
+        let a, b;
+        if (r === 0) { a = 2 * m; b = 2 * m + 1; }
+        else { a = results['r' + (r - 1)][2 * m]; b = results['r' + (r - 1)][2 * m + 1]; }
+        if (a != null && b != null) return r;
+      }
+    }
+    return -1;
+  }
+  function divisionAt(ev, r) {
+    if (r < 0) return { divided: [], unanimous: 0 };
+    const list = [];
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      let a, b;
+      if (r === 0) { a = 2 * m; b = 2 * m + 1; }
+      else { a = state.results[ev]['r' + (r - 1)][2 * m]; b = state.results[ev]['r' + (r - 1)][2 * m + 1]; }
+      if (a == null || b == null) continue;
+      const aP = entries.filter(e => e[ev]['r' + r][m] === a).map(e => e.name);
+      const bP = entries.filter(e => e[ev]['r' + r][m] === b).map(e => e.name);
+      const inPlay = aP.length + bP.length;
+      list.push({ ev, r, m, a, b, aP, bP, inPlay, out: N - inPlay, split: Math.abs(aP.length - bP.length) });
+    }
+    const divided = list.filter(c => c.inPlay >= Math.max(2, N - 2) && c.split <= 1)
+      .sort((a, b) => a.split - b.split || b.inPlay - a.inPlay);
+    const unanimous = list.filter(c => c.inPlay >= N - 1 && (c.aP.length === c.inPlay || c.bP.length === c.inPlay)).length;
+    return { divided, unanimous };
+  }
+  const nextMen = nextActiveRound(state.results.men);
+  const nextWomen = nextActiveRound(state.results.women);
+  const divMen = divisionAt('men', nextMen);
+  const divWomen = divisionAt('women', nextWomen);
+  const allDivided = [...divMen.divided, ...divWomen.divided]
+    .sort((a, b) => a.split - b.split || b.inPlay - a.inPlay).slice(0, 8);
+  const totalUnanimousNext = divMen.unanimous + divWomen.unanimous;
+  const nextLabel = nextMen >= 0 ? ROUND_SHORT[nextMen] : (nextWomen >= 0 ? ROUND_SHORT[nextWomen] : '');
+
+  const lines = [];
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  lines.push(`🎾 Kiwi House Bracket — ${dateStr} tournament recap`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+
+  const spread = stats[0].score - stats[stats.length - 1].score;
+  lines.push(`📊 STANDINGS  (${spread} pts cover the field)`);
+  stats.forEach((s, i) => {
+    lines.push(`   ${i + 1}. ${s.name.padEnd(8)} ${String(s.score).padStart(4)}  · M ${s.menCorrect}/${s.menPlayed} · W ${s.womenCorrect}/${s.womenPlayed}`);
+  });
+  lines.push('');
+  lines.push(`Family hit rate: ${fam.correct}/${fam.total} = ${famPct}%`);
+  lines.push(`Mathematically eliminated: ${eliminated.length ? eliminated.map(s => s.name).join(', ') : 'nobody'}`);
+  lines.push('');
+
+  lines.push('🥇 SPECIALISTS');
+  lines.push(`   Men's expert:    ${menExpert.name}   (${menExpert.menCorrect}/${menExpert.menPlayed})`);
+  lines.push(`   Women's expert:  ${womenExpert.name}   (${womenExpert.womenCorrect}/${womenExpert.womenPlayed})`);
+  lines.push('');
+
+  const topContrarian = Math.max(...stats.map(s => s.contrarian));
+  const topUpsets = Math.max(...stats.map(s => s.upsets));
+  const tcNames = stats.filter(s => s.contrarian === topContrarian && topContrarian > 0).map(s => s.name);
+  const tuNames = stats.filter(s => s.upsets === topUpsets && topUpsets > 0).map(s => s.name);
+  const safest = stats.slice().sort((a, b) => (a.contrarian + a.upsets) - (b.contrarian + b.upsets))[0];
+  lines.push('🎯 STYLE PROFILES');
+  if (tcNames.length) lines.push(`   Most contrarian: ${tcNames.join(', ')} (${topContrarian} contrarian wins)`);
+  if (tuNames.length) lines.push(`   Upset hunters:   ${tuNames.join(', ')} (${topUpsets} seed losses called)`);
+  lines.push(`   Safest player:   ${safest.name} (${safest.contrarian} contrarian wins, ${safest.upsets} upsets called)`);
+  lines.push('');
+
+  lines.push('🏆 CHAMPION PICKS');
+  for (const ev of ['men', 'women']) {
+    const items = Object.entries(champTally[ev]).map(([name, v]) => ({ name, ...v }));
+    const alive = items.filter(t => t.alive).sort((a, b) => b.count - a.count);
+    const dead = items.filter(t => !t.alive).sort((a, b) => b.count - a.count);
+    const evLabel = ev === 'men' ? 'Men' : 'Women';
+    lines.push(`   ${evLabel}: ${alive.length ? alive.map(t => `${t.name} (${t.count})`).join(' · ') : "nobody's pick alive 😱"}`);
+    if (dead.length) lines.push(`     Out: ${dead.map(t => `${t.name} (was ${t.count})`).join(', ')}`);
+  }
+  lines.push('');
+
+  if (allMissed.length) {
+    lines.push(`😱 WE ALL MISSED (${allMissed.length} matches)`);
+    allMissed.slice(0, 15).forEach(t => {
+      const draw = DRAWS[t.event];
+      let a, b;
+      if (t.r === 0) { a = 2 * t.m; b = 2 * t.m + 1; }
+      else { a = state.results[t.event]['r' + (t.r - 1)][2 * t.m]; b = state.results[t.event]['r' + (t.r - 1)][2 * t.m + 1]; }
+      const loser = t.winner === a ? b : a;
+      lines.push(`   ${t.event === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: ${recapName(draw, t.winner)} d. ${recapName(draw, loser)}`);
+    });
+    if (allMissed.length > 15) lines.push(`   …and ${allMissed.length - 15} more`);
+    lines.push('');
+  }
+
+  lines.push(`🤝 We were all right on ${unanimousCount} matches.`);
+
+  if (allDivided.length > 0 || totalUnanimousNext > 0) {
+    lines.push('');
+    lines.push(`📈 ${nextLabel} OUTLOOK`);
+    if (totalUnanimousNext > 0) lines.push(`   Family is locked in on ${totalUnanimousNext} matches.`);
+    if (allDivided.length > 0) {
+      lines.push(`   Toss-ups (where we're split):`);
+      allDivided.forEach(d => {
+        const draw = DRAWS[d.ev];
+        const evL = d.ev === 'men' ? 'M' : 'W';
+        const outStr = d.out ? `  [${d.out} bracket${d.out > 1 ? 's' : ''} out]` : '';
+        lines.push(`     ${evL} ${ROUND_SHORT[d.r]} m${d.m + 1}: ${recapName(draw, d.a)} [${d.aP.join(', ')}] vs ${recapName(draw, d.b)} [${d.bP.join(', ')}]${outStr}`);
+      });
+    }
+  }
+
+  return lines.join('\n');
+}
+
 function advanceRecap() {
   if (!db) return;
   fb.setDoc(fb.doc(db, 'meta', 'recap_snapshot'), {
@@ -407,6 +602,18 @@ async function copyRecap() {
     alert('Recap copied to clipboard!');
   } catch (e) {
     const ta = document.querySelector('.recap-text');
+    if (ta) { ta.focus(); ta.select(); }
+    alert("Couldn't auto-copy — the recap text is selected; press Cmd/Ctrl+C.");
+  }
+}
+
+async function copyTournamentRecap() {
+  const text = generateTournamentRecapText();
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Tournament recap copied to clipboard!');
+  } catch (e) {
+    const ta = document.getElementById('tournament-recap-text');
     if (ta) { ta.focus(); ta.select(); }
     alert("Couldn't auto-copy — the recap text is selected; press Cmd/Ctrl+C.");
   }
@@ -432,6 +639,21 @@ function commissionerRecapPanel() {
     html += `<p class="small muted" style="margin-top:8px">No prior recap yet — diff counts from the start of the tournament.</p>`;
   }
   html += `</div>`;
+  return html;
+}
+
+function commissionerTournamentRecapPanel() {
+  const text = generateTournamentRecapText();
+  let html = `<div class="panel"><h2>Tournament recap</h2>
+    <p class="muted small">A richer, end-of-round shareable summary built from
+      everyone's brackets and all results so far — standings, men's/women's
+      specialists, style profiles, champion status, the matches we all
+      missed, and a look at next round's toss-ups. Independent of the daily
+      pointer.</p>`;
+  html += `<textarea class="recap-text" id="tournament-recap-text" readonly rows="28">${esc(text)}</textarea>`;
+  html += `<div class="recap-actions">
+    <button class="btn" data-action="copy-tournament-recap">Copy tournament recap</button>
+  </div></div>`;
   return html;
 }
 
@@ -1017,6 +1239,7 @@ function commissionerView() {
   html += `</div>`;
 
   html += commissionerRecapPanel();
+  html += commissionerTournamentRecapPanel();
   html += commissionerAnalyticsPanel();
 
   return html;
@@ -1157,6 +1380,7 @@ appEl.addEventListener('click', e => {
   else if (a === 'new-bracket') { newBracket(); }
   else if (a === 'pick-different-name') { state.pendingName = null; state.pinError = null; render(); }
   else if (a === 'copy-recap') { copyRecap(); }
+  else if (a === 'copy-tournament-recap') { copyTournamentRecap(); }
   else if (a === 'advance-recap') {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
   }
