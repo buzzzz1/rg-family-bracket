@@ -39,7 +39,9 @@ function namesMatch(feedName, drawName) {
   if (!a || !b) return false;
   if (a === b || a.includes(b) || b.includes(a)) return true;
   const sa = surname(feedName), sb = surname(drawName);
-  return !!sa && !!sb && (sa === sb || sa.includes(sb) || sb.includes(sa));
+  // Require surname length >= 3 before substring matching to avoid "li" matching "kalinina" etc.
+  return !!sa && !!sb && (sa === sb ||
+    (sa.length >= 3 && sb.length >= 3 && (sa.includes(sb) || sb.includes(sa))));
 }
 // 2 = real name match, 1 = "Qualifier" placeholder (wildcard), 0 = no match
 function slotScore(feedName, draw, slot) {
