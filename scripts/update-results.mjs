@@ -71,11 +71,22 @@ function resolveDraw(draw, pairs) {
       if (a == null || b == null) continue; // both players not yet known
       let best = null, bestScore = 0;
       for (const [w, l] of pairs) {
+        const wA = slotScore(w, draw, a), wB = slotScore(w, draw, b);
+        const lA = slotScore(l, draw, a), lB = slotScore(l, draw, b);
         // option 1: winner=a, loser=b   option 2: winner=b, loser=a
-        const s1 = Math.min(slotScore(w, draw, a), slotScore(l, draw, b));
-        const s2 = Math.min(slotScore(w, draw, b), slotScore(l, draw, a));
+        const s1 = Math.min(wA, lB);
+        const s2 = Math.min(wB, lA);
         if (s1 > bestScore && s1 >= s2) { best = a; bestScore = s1; }
         else if (s2 > bestScore) { best = b; bestScore = s2; }
+        // Lucky-loser fallback (round 1 only — that's the only round LLs
+        // enter): the loser is a late replacement not in the draw (matches
+        // neither contender), but the winner uniquely matches one slot —
+        // resolve on the winner alone, at low priority so genuine two-name
+        // matches always win.
+        else if (r === 0 && lA === 0 && lB === 0 && bestScore < 1) {
+          if (wA >= 2 && wB === 0) { best = a; bestScore = 1; }
+          else if (wB >= 2 && wA === 0) { best = b; bestScore = 1; }
+        }
       }
       if (best != null) picks['r' + r][m] = best;
     }
