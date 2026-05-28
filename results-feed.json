@@ -63,7 +63,21 @@
     ["U. Humbert", "A. Mannarino"],
     ["Q. Halys", "M. Bellucci"],
     ["T. Machac", "Z. Bergs"],
-    ["A. Zverev", "B. Bonzi"]
+    ["A. Zverev", "B. Bonzi"],
+    ["N. Djokovic", "V. Royer"],
+    ["A. Zverev", "T. Machac"],
+    ["C. Ruud", "H. Medjedovic"],
+    ["J. Fonseca", "D. Prizmic"],
+    ["A. Rublev", "C. Ugo Carabelli"],
+    ["Q. Halys", "U. Humbert"],
+    ["T. Paul", "L. Sonego"],
+    ["A. Michelsen", "N. Basavareddy"],
+    ["R. Jodar", "J. Duckworth"],
+    ["A. De Minaur", "A. Blockx"],
+    ["J. Mensik", "M. Navone"],
+    ["P. Carreno Busta", "T. Kokkinakis"],
+    ["TA. Tirante", "A. Davidovich Fokina"],
+    ["K. Khachanov", "M. Trungelliti"]
   ],
   "women": [
     ["A. Sabalenka", "J. Bouzas Maneiro"],
@@ -128,6 +142,20 @@
     ["H. Baptiste", "B. Krejcikova"],
     ["X. Wang", "D. Kovinic"],
     ["Y. Starodubtseva", "A. Blinkova"],
-    ["E. Rybakina", "V. Erjavec"]
+    ["M. Kessler", "H. Guo"],
+    ["E. Rybakina", "V. Erjavec"],
+    ["Y. Starodubtseva", "E. Rybakina"],
+    ["S. Sierra", "J. Paolini"],
+    ["E. Svitolina", "K. Quevedo"],
+    ["I. Swiatek", "S. Bejlek"],
+    ["M. Andreeva", "M. Bassols Ribera"],
+    ["K. Muchova", "K. Rakhimova"],
+    ["M. Bouzkova", "F. Jones"],
+    ["M. Linette", "J. Ostapenko"],
+    ["S. Cirstea", "E. Lys"],
+    ["M. Kostyuk", "K. Volynets"],
+    ["B. Bencic", "C. Mcnally"],
+    ["V. Golubic", "A. Parks"],
+    ["A. Anisimova", "J. Grabher"]
   ]
 }
