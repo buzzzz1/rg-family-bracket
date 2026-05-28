@@ -100,6 +100,22 @@ function countResolved(picks) {
   return n;
 }
 
+// Merge resolved results over the existing stored results: a resolved
+// (non-null) match wins; any match the feed didn't cover keeps its existing
+// value. So a partial feed never wipes results entered another way (e.g. the
+// commissioner's manual entries).
+function mergePicks(resolved, existing) {
+  const out = emptyPicks();
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const rv = resolved['r' + r][m];
+      if (rv !== null && rv !== undefined) out['r' + r][m] = rv;
+      else if (existing && existing['r' + r][m] != null) out['r' + r][m] = existing['r' + r][m];
+    }
+  }
+  return out;
+}
+
 // --- Firestore REST value encoding --------------------------------------
 function toValue(v) {
   if (v === null || v === undefined) return { nullValue: null };
@@ -173,11 +189,15 @@ async function main() {
   console.log(`Feed: ${menPairs.length} men's pairs, ${womenPairs.length} women's pairs`);
   console.log(`Resolved: men ${countResolved(men)} matches, women ${countResolved(women)} matches`);
 
-  // Change log: diff against what's currently in Firestore so each run
-  // prints exactly which matches were added, changed, or removed.
+  // Merge over what's already stored so a partial feed never wipes results
+  // entered another way (matches we resolve win; everything else is kept).
   const existing = await fetchExistingResults();
-  const menChanges = diffPicks(existing && existing.men, men, DRAWS.men, "Men's");
-  const womenChanges = diffPicks(existing && existing.women, women, DRAWS.women, "Women's");
+  const mergedMen = mergePicks(men, existing && existing.men);
+  const mergedWomen = mergePicks(women, existing && existing.women);
+
+  // Change log: diff the merged state against what's currently stored.
+  const menChanges = diffPicks(existing && existing.men, mergedMen, DRAWS.men, "Men's");
+  const womenChanges = diffPicks(existing && existing.women, mergedWomen, DRAWS.women, "Women's");
   console.log('Change log since last run:');
   if (menChanges.length + womenChanges.length === 0) {
     console.log('  (no changes)');
@@ -188,8 +208,8 @@ async function main() {
 
   if (process.argv.includes('--dry-run')) {
     const champ = (draw, p) => p.r6[0] != null ? draw[p.r6[0]].name : '(undecided)';
-    console.log(`Men's champion so far:   ${champ(DRAWS.men, men)}`);
-    console.log(`Women's champion so far: ${champ(DRAWS.women, women)}`);
+    console.log(`Men's champion so far:   ${champ(DRAWS.men, mergedMen)}`);
+    console.log(`Women's champion so far: ${champ(DRAWS.women, mergedWomen)}`);
     console.log('Dry run — nothing written to Firestore.');
     return;
   }
@@ -199,8 +219,8 @@ async function main() {
     `/databases/(default)/documents/meta/results?key=${apiKey}`;
   const body = {
     fields: {
-      men: toValue(men),
-      women: toValue(women),
+      men: toValue(mergedMen),
+      women: toValue(mergedWomen),
       updatedAt: toValue(Date.now()),
     },
   };
