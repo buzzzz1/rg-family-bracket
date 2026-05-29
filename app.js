@@ -492,32 +492,58 @@ function generateTournamentRecapText() {
     }
     return -1;
   }
-  function divisionAt(ev, r) {
-    if (r < 0) return { divided: [], unanimous: 0 };
-    const list = [];
+  // Deepest round an entry has carried player `c` (its furthest pick for them).
+  function deepestStage(e, ev, c) {
+    let d = -1;
+    for (let r = 0; r < 7; r++) if (e[ev]['r' + r][matchOfSlot(c, r)] === c) d = r;
+    return d;
+  }
+  // Max points an entry still has riding on player `c`, from round `from` onward.
+  function ridingPoints(e, ev, c, from) {
+    let pts = 0;
+    for (let r = from; r < 7; r++) if (e[ev]['r' + r][matchOfSlot(c, r)] === c) pts += ROUND_POINTS[r];
+    return pts;
+  }
+  // Stage an entry reaches a player to by winning round r (pick at r = "wins r").
+  const REACHED = ['R64', 'R32', 'R16', 'QF', 'SF', 'final', 'champion'];
+  function outlookForEvent(ev, r) {
+    if (r < 0) return null;
+    const matches = [];
+    let locked = 0, split = 0;
     for (let m = 0; m < ROUND_SIZES[r]; m++) {
       let a, b;
       if (r === 0) { a = 2 * m; b = 2 * m + 1; }
       else { a = state.results[ev]['r' + (r - 1)][2 * m]; b = state.results[ev]['r' + (r - 1)][2 * m + 1]; }
       if (a == null || b == null) continue;
-      const aP = entries.filter(e => e[ev]['r' + r][m] === a).map(e => e.name);
-      const bP = entries.filter(e => e[ev]['r' + r][m] === b).map(e => e.name);
-      const inPlay = aP.length + bP.length;
-      list.push({ ev, r, m, a, b, aP, bP, inPlay, out: N - inPlay, split: Math.abs(aP.length - bP.length) });
+      const aBackers = entries.filter(e => e[ev]['r' + r][m] === a);
+      const bBackers = entries.filter(e => e[ev]['r' + r][m] === b);
+      const inPlay = aBackers.length + bBackers.length;
+      if (inPlay === 0) continue; // nobody alive on this match — skip
+      if (aBackers.length === inPlay || bBackers.length === inPlay) locked++; else split++;
+      // Total family max-points hinging on this single match (lost if your pick falls).
+      let stakes = 0;
+      for (const e of [...aBackers, ...bBackers]) stakes += ridingPoints(e, ev, e[ev]['r' + r][m], r);
+      // Furthest stage each side is carried to, grouped (deepest first).
+      const carry = (backers, c) => {
+        const byStage = {};
+        backers.forEach(e => { const d = deepestStage(e, ev, c); (byStage[d] = byStage[d] || []).push(e.name); });
+        return Object.keys(byStage).map(Number).sort((x, y) => y - x)
+          .map(d => ({ rank: d, stage: REACHED[d], names: byStage[d] }));
+      };
+      matches.push({
+        ev, r, m, a, b,
+        aP: aBackers.map(e => e.name), bP: bBackers.map(e => e.name),
+        aCarry: carry(aBackers, a), bCarry: carry(bBackers, b),
+        inPlay, out: N - inPlay, stakes,
+      });
     }
-    const divided = list.filter(c => c.inPlay >= Math.max(2, N - 2) && c.split <= 1)
-      .sort((a, b) => a.split - b.split || b.inPlay - a.inPlay);
-    const unanimous = list.filter(c => c.inPlay >= N - 1 && (c.aP.length === c.inPlay || c.bP.length === c.inPlay)).length;
-    return { divided, unanimous };
+    matches.sort((x, y) => y.stakes - x.stakes);
+    return { ev, matches, locked, split, label: ROUND_SHORT[r] };
   }
   const nextMen = nextActiveRound(state.results.men);
   const nextWomen = nextActiveRound(state.results.women);
-  const divMen = divisionAt('men', nextMen);
-  const divWomen = divisionAt('women', nextWomen);
-  const allDivided = [...divMen.divided, ...divWomen.divided]
-    .sort((a, b) => a.split - b.split || b.inPlay - a.inPlay).slice(0, 8);
-  const totalUnanimousNext = divMen.unanimous + divWomen.unanimous;
-  const nextLabel = nextMen >= 0 ? ROUND_SHORT[nextMen] : (nextWomen >= 0 ? ROUND_SHORT[nextWomen] : '');
+  const outMen = outlookForEvent('men', nextMen);
+  const outWomen = outlookForEvent('women', nextWomen);
 
   const lines = [];
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
@@ -562,36 +588,54 @@ function generateTournamentRecapText() {
   }
   lines.push('');
 
-  if (allMissed.length) {
-    lines.push(`😱 WE ALL MISSED (${allMissed.length} matches)`);
-    allMissed.slice(0, 15).forEach(t => {
+  const r64Missed = allMissed.filter(t => t.r === 1);
+  if (r64Missed.length) {
+    lines.push(`😱 WE ALL MISSED — R64 (${r64Missed.length} matches)`);
+    r64Missed.slice(0, 15).forEach(t => {
       const draw = DRAWS[t.event];
-      let a, b;
-      if (t.r === 0) { a = 2 * t.m; b = 2 * t.m + 1; }
-      else { a = state.results[t.event]['r' + (t.r - 1)][2 * t.m]; b = state.results[t.event]['r' + (t.r - 1)][2 * t.m + 1]; }
+      const a = state.results[t.event].r0[2 * t.m];
+      const b = state.results[t.event].r0[2 * t.m + 1];
       const loser = t.winner === a ? b : a;
       lines.push(`   ${t.event === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: ${recapName(draw, t.winner)} d. ${recapName(draw, loser)}`);
     });
-    if (allMissed.length > 15) lines.push(`   …and ${allMissed.length - 15} more`);
+    if (r64Missed.length > 15) lines.push(`   …and ${r64Missed.length - 15} more`);
     lines.push('');
   }
 
   lines.push(`🤝 We were all right on ${unanimousCount} matches.`);
 
-  if (allDivided.length > 0 || totalUnanimousNext > 0) {
+  function renderOutlook(out) {
+    if (!out) return;
+    const ev = out.ev, draw = DRAWS[ev];
+    const evLabel = ev === 'men' ? "Men's" : "Women's";
+    const last = (slot) => draw[slot].name.split(' ').pop();
+    const STAGE = { 6: 'title', 5: 'finalist' };
+    // Only the split matches — the ones where it's family-vs-family.
+    const splits = out.matches.filter(mm => mm.aP.length > 0 && mm.bP.length > 0);
     lines.push('');
-    lines.push(`📈 ${nextLabel} OUTLOOK`);
-    if (totalUnanimousNext > 0) lines.push(`   Family is locked in on ${totalUnanimousNext} matches.`);
-    if (allDivided.length > 0) {
-      lines.push(`   Toss-ups (where we're split):`);
-      allDivided.forEach(d => {
-        const draw = DRAWS[d.ev];
-        const evL = d.ev === 'men' ? 'M' : 'W';
-        const outStr = d.out ? `  [${d.out} bracket${d.out > 1 ? 's' : ''} out]` : '';
-        lines.push(`     ${evL} ${ROUND_SHORT[d.r]} m${d.m + 1}: ${recapName(draw, d.a)} [${d.aP.join(', ')}] vs ${recapName(draw, d.b)} [${d.bP.join(', ')}]${outStr}`);
-      });
+    if (splits.length === 0) {
+      lines.push(`👀 ${evLabel} ${out.label} — the family fully agrees this round.`);
+      return;
     }
+    lines.push(`👀 ${evLabel} ${out.label} — ones to watch (where we disagree)`);
+    splits.forEach(mm => {
+      const aFav = mm.aP.length >= mm.bP.length;
+      const fav = aFav ? mm.a : mm.b, oth = aFav ? mm.b : mm.a;
+      const favNames = aFav ? mm.aP : mm.bP, othNames = aFav ? mm.bP : mm.aP;
+      const deep = [
+        ...mm.aCarry.map(g => ({ ...g, slot: mm.a })),
+        ...mm.bCarry.map(g => ({ ...g, slot: mm.b })),
+      ].filter(g => STAGE[g.rank]).sort((x, y) => y.rank - x.rank)[0];
+      const whoPoss = deep
+        ? (deep.names.length > 2 ? `${deep.names.length} brackets'` : `${deep.names.join(' & ')}'s`)
+        : '';
+      const tag = deep ? ` · ${last(deep.slot)} is ${whoPoss} ${STAGE[deep.rank]}` : '';
+      lines.push(`   • ${recapName(draw, fav)} vs ${recapName(draw, oth)} — ` +
+        `${favNames.length} on ${last(fav)}, ${othNames.join(', ')} on ${last(oth)}${tag}`);
+    });
   }
+  renderOutlook(outMen);
+  renderOutlook(outWomen);
 
   return lines.join('\n');
 }
