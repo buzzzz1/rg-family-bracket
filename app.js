@@ -233,11 +233,21 @@ function familyStats(entries, matches) {
   const unanimousCorrect = [], unanimousWrong = [];
   let hardest = null, easiest = null;
   for (const t of matches) {
+    // The two actual contenders of this match. A pick for anyone else is a
+    // "dead" bracket pick (that player was eliminated earlier), not a real
+    // prediction for this match — so it shouldn't count toward today's stats.
+    let cA, cB;
+    if (t.r === 0) { cA = 2 * t.m; cB = 2 * t.m + 1; }
+    else {
+      cA = state.results[t.event]['r' + (t.r - 1)][2 * t.m];
+      cB = state.results[t.event]['r' + (t.r - 1)][2 * t.m + 1];
+    }
     let pickCount = 0, correctCount = 0;
     let firstPick = null, allSame = true;
     for (const e of entries) {
       const p = e[t.event]['r' + t.r][t.m];
       if (p === null || p === undefined) continue;
+      if (p !== cA && p !== cB) continue; // dead pick — player isn't in this match
       pickCount++; total++;
       byRound[t.r].played++;
       if (firstPick === null) firstPick = p;
