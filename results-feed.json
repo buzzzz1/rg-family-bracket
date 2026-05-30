@@ -95,7 +95,15 @@
     ["F. Cerundolo", "H. Gaston"],
     ["Z. Svajda", "A. Walton"],
     ["N. Borges", "M. Kecmanovic"],
-    ["J. de Jong", "F. Cina"]
+    ["J. de Jong", "F. Cina"],
+    ["J. Fonseca", "N. Djokovic"],
+    ["A. Zverev", "Q. Halys"],
+    ["J. Mensik", "A. De Minaur"],
+    ["A. Rublev", "N. Borges"],
+    ["J. de Jong", "K. Khachanov"],
+    ["C. Ruud", "T. Paul"],
+    ["R. Jodar", "A. Michelsen"],
+    ["P. Carreno Busta", "TA. Tirante"]
   ],
   "women": [
     ["A. Sabalenka", "J. Bouzas Maneiro"],
@@ -193,6 +201,10 @@
     ["T. Korpatsch", "X. Wang"],
     ["P. Stearns", "D. Snigur"],
     ["J. Teichmann", "M. Frech"],
-    ["X. Wang", "H. Baptiste"]
+    ["X. Wang", "H. Baptiste"],
+    ["E. Svitolina", "T. Korpatsch"],
+    ["M. Kostyuk", "V. Golubic"],
+    ["I. Swiatek", "M. Linette"],
+    ["X. Wang", "Y. Starodubtseva"]
   ]
 }
