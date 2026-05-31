@@ -59,7 +59,7 @@
     ["K. Khachanov", "A. Gea"],
     ["M. Trungelliti", "K. Jacquet"],
     ["F. Cina", "R. Opelka"],
-    ["De Jong", "S. Wawrinka"],
+    ["J. de Jong", "S. Wawrinka"],
     ["U. Humbert", "A. Mannarino"],
     ["Q. Halys", "M. Bellucci"],
     ["T. Machac", "Z. Bergs"],
@@ -87,7 +87,7 @@
     ["M. Arnaldi", "S. Tsitsipas"],
     ["R. Collignon", "B. Shelton"],
     ["F. Auger-Aliassime", "RA. Burruchaga"],
-    ["L. Van Assche", "B. Nakashima"],
+    ["B. Nakashima", "L. Van Assche"],
     ["M. Kouame", "AD. Vallejo"],
     ["A. Tabilo", "V. Vacherot"],
     ["F. Cobolli", "Y. Wu"],
@@ -103,7 +103,15 @@
     ["J. de Jong", "K. Khachanov"],
     ["C. Ruud", "T. Paul"],
     ["R. Jodar", "A. Michelsen"],
-    ["P. Carreno Busta", "TA. Tirante"]
+    ["P. Carreno Busta", "TA. Tirante"],
+    ["JM. Cerundolo", "M. Landaluce"],
+    ["M. Berrettini", "F. Comesana"],
+    ["F. Tiafoe", "J. Faria"],
+    ["M. Arnaldi", "R. Collignon"],
+    ["F. Auger-Aliassime", "B. Nakashima"],
+    ["A. Tabilo", "M. Kouame"],
+    ["F. Cobolli", "L. Tien"],
+    ["Z. Svajda", "F. Cerundolo"]
   ],
   "women": [
     ["A. Sabalenka", "J. Bouzas Maneiro"],
@@ -205,6 +213,17 @@
     ["E. Svitolina", "T. Korpatsch"],
     ["M. Kostyuk", "V. Golubic"],
     ["I. Swiatek", "M. Linette"],
-    ["X. Wang", "Y. Starodubtseva"]
+    ["X. Wang", "Y. Starodubtseva"],
+    ["A. Sabalenka", "D. Kasatkina"],
+    ["A. Potapova", "C. Gauff"],
+    ["N. Osaka", "I. Jovic"],
+    ["M. Keys", "V. Mboko"],
+    ["D. Shnaider", "O. Oliynykova"],
+    ["A. Kalinskaya", "C. Osorio"],
+    ["M. Chwalinska", "M. Sakkari"],
+    ["M. Andreeva", "M. Bouzkova"],
+    ["D. Parry", "A. Anisimova"],
+    ["B. Bencic", "P. Stearns"],
+    ["S. Cirstea", "S. Sierra"]
   ]
 }
