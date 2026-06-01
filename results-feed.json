@@ -111,7 +111,11 @@
     ["F. Auger-Aliassime", "B. Nakashima"],
     ["A. Tabilo", "M. Kouame"],
     ["F. Cobolli", "L. Tien"],
-    ["Z. Svajda", "F. Cerundolo"]
+    ["Z. Svajda", "F. Cerundolo"],
+    ["J. Fonseca", "C. Ruud"],
+    ["J. Mensik", "A. Rublev"],
+    ["R. Jodar", "P. Carreno Busta"],
+    ["A. Zverev", "J. de Jong"]
   ],
   "women": [
     ["A. Sabalenka", "J. Bouzas Maneiro"],
@@ -224,6 +228,10 @@
     ["M. Andreeva", "M. Bouzkova"],
     ["D. Parry", "A. Anisimova"],
     ["B. Bencic", "P. Stearns"],
-    ["S. Cirstea", "S. Sierra"]
+    ["S. Cirstea", "S. Sierra"],
+    ["M. Andreeva", "J. Teichmann"],
+    ["E. Svitolina", "B. Bencic"],
+    ["M. Kostyuk", "I. Swiatek"],
+    ["S. Cirstea", "X. Wang"]
   ]
 }
