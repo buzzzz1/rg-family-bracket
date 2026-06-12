@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1526';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1526';
+import { DRAWS } from './draws.js?v=20260612-1553';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1553';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1122,38 +1122,40 @@ function renderFinalRecapHTML(rc) {
 
   html += `<div class="story-card">
     <h3>📜 Two debut Grand Slam champions</h3>
-    <p>Alexander Zverev finally captures his first major after years of close calls. The German rolled through Bonzi, Machac, Halys, de Jong, Jodar (#27), and Mensik (#26) before sealing it against Cobolli (#10) in the final.</p>
-    <p>Mirra Andreeva — 19 years old — lifts her first Slam in a breakout year: Ferro, Bassols Ribera, Bouzkova (#27), Teichmann, Cirstea (#18), Kostyuk (#15), and Chwalinska all fell on her way to the title.</p>
-    <p class="story-note">First Roland Garros since 2004 (Gaudio &amp; Myskina) where both singles champions are first-time Grand Slam winners.</p>
+    <p>Alexander Zverev finally captures his first major in his fourth Slam final, beating Flavio Cobolli (#10) 6-1, 4-6, 6-4, 6-7(5), 6-1. The first German man to win a major since Boris Becker at the 1996 Australian Open — and the first man to make Roland Garros his maiden Slam since Rafael Nadal 21 years ago.</p>
+    <p>Mirra Andreeva — 19 years old — lifts her first Slam, defeating Maja Chwalińska 6-3, 6-2 in the final. She's the youngest women's champion at Roland Garros since Monica Seles in 1992, and the third-youngest women's Slam champion of the 21st century.</p>
   </div>`;
 
   html += `<div class="story-card">
-    <h3>🌟 Maja Chwalinska — the Cinderella run</h3>
-    <p>The unseeded Pole tore through the women's draw to the final: Q. Zheng → E. Mertens (#23) → M. Sakkari → D. Parry → A. Kalinskaya (#22) → D. Shnaider (#25, who'd just stunned Sabalenka in the QF) → a meeting with Andreeva for the title.</p>
+    <h3>🌟 Maja Chwalińska — the Cinderella run</h3>
+    <p>The unseeded Pole tore through the women's draw to the final: Q. Zheng → E. Mertens (#23) → M. Sakkari → D. Parry → A. Kalinskaya (#22) → D. Shnaider (#25, who'd just stunned Sabalenka in the QF) → a meeting with Andreeva for the title (lost 6-3, 6-2).</p>
     <p>She didn't lift the trophy, but every round was the kind of upset you tell your friends about. The bracket-buster of the tournament.</p>
   </div>`;
 
   html += `<div class="story-card">
     <h3>🚀 The next gen has arrived</h3>
     <ul>
-      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion.</li>
-      <li><strong>João Fonseca</strong> (M, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
-      <li><strong>Jakub Mensik</strong> (M, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca to make the last four. Lost to Zverev.</li>
-      <li><strong>Roberto Jodar</strong> (M, #27) — first Slam quarterfinal. Knocked out Carreño Busta in R16.</li>
-      <li><strong>M. Kouame</strong> (M, unseeded) — beat former Slam champion Marin Cilic in R128, reached R32.</li>
-      <li><strong>Martín Landaluce</strong> (M, unseeded) — Spanish teenager made R32 on debut.</li>
+      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion. Youngest women's RG winner since Seles in 1992.</li>
+      <li><strong>João Fonseca</strong> (M, 19, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
+      <li><strong>Jakub Menšík</strong> (M, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca. Lost to Zverev.</li>
+      <li><strong>Rafa Jódar</strong> (M, 19, #27) — first Slam quarterfinal on his Roland Garros main-draw debut. Fifth man this century to make the QF on a Slam debut.</li>
+      <li><strong>Moïse Kouamé</strong> (M, 17, unseeded) — French teenager beat former Slam champion Marin Cilic in his opener — youngest player in the Open era to topple a major champion at Roland Garros. Reached R32.</li>
+      <li><strong>Martín Landaluce</strong> (M, unseeded) — young Spaniard made R32 on his debut.</li>
     </ul>
+    <p class="story-note">Jódar, Fonseca, and Kouamé were the first trio of teenagers to reach the third round at a major since 2006.</p>
   </div>`;
 
   html += `<div class="story-card">
     <h3>👑 When the chalk fell</h3>
-    <p>The favorites had a brutal week. <strong>Jannik Sinner (#1)</strong> went out R64 to JM. Cerundolo — the men's upset of the tournament. <strong>Aryna Sabalenka (#1)</strong> was stunned by Diana Shnaider (#25) in the QF. <strong>Iga Swiatek (#3)</strong> fell to Kostyuk in R16. <strong>Coco Gauff (#4)</strong> was ousted by Potapova in R32.</p>
+    <p>The favorites had a brutal week. <strong>Jannik Sinner (#1)</strong> went out R64 to JM. Cerundolo — the men's upset of the tournament. <strong>Aryna Sabalenka (#1)</strong> was stunned by Diana Shnaider (#25) in the QF. <strong>Iga Świątek (#3)</strong> fell to Kostyuk in R16. <strong>Coco Gauff (#4)</strong> was ousted by Potapova in R32.</p>
     <p>By the semifinals, the top of both draws had collapsed — and Zverev (#2) was the one to take advantage.</p>
   </div>`;
 
-  html += `<div class="story-card pending">
-    <h3>🥵 The five-set drama <em style="font-weight: 400; font-style: normal; opacity: .6">(TBA)</em></h3>
-    <p><strong>Michael — drop me the matches</strong> you want highlighted (round, players, why it was wild) and I'll fold them in for the family.</p>
+  html += `<div class="story-card">
+    <h3>🥵 An all-time marathon edition</h3>
+    <p>Roland Garros 2026 was on pace to match the tournament record of <strong>33 five-set matches</strong> (set in 1992 and 2001) — 30+ five-setters were already in the books before the round of 16 had even finished. The men's side hit <strong>20+ matches over 4 hours</strong>, the most since records began in 1999.</p>
+    <p>The headline marathon: <strong>JM. Cerundolo d. Martín Landaluce, 5 hours 58 minutes</strong> in R32 — the third-longest match in Roland Garros history, behind only Santoro vs. Clément (2004, 6h33) and Moutet vs. Giustino (2020, 6h05). Cerundolo had stunned #1 Sinner just one round earlier. What a fortnight for him.</p>
+    <p>And 17-year-old Moïse Kouamé's 4h56m second-round win over Vallejo deserves its own mention — he became the youngest man to reach the third round of a major since Nadal at Wimbledon 2003.</p>
   </div>`;
 
   html += `</div>`;
@@ -1166,7 +1168,7 @@ function renderFinalRecapHTML(rc) {
     if (f.r === 6) {
       headline = `Two first-time Slam champions — Alexander Zverev (M) and Mirra Andreeva (W, 19).`;
     } else if (f.r === 5 && f.played > 0 && f.acc === 1) {
-      headline = `Family unanimity — went ${f.correct}/${f.played} on the semifinals.`;
+      headline = `Family unanimity — every live SF pick was correct (${f.correct}/${f.played}). After the chalk implosions earlier, the few brackets that still had a player alive at the semis all called the winner.`;
     } else if (f.upset) {
       const d = DRAWS[f.upset.ev];
       let line = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
@@ -1191,39 +1193,7 @@ function renderFinalRecapHTML(rc) {
     </div>`;
   });
 
-  html += `<details class="recap-details" style="margin-top: 14px">
-    <summary>What's a "live prediction"?</summary>
-    <div class="explainer-body">
-      A pick only counts toward accuracy if the player you chose was actually in
-      that match. If your R64 winner already lost in R128, your later picks for
-      them are "dead" and don't count. That's why brackets accumulate dead picks
-      at different rates.
-    </div>
-  </details>`;
   html += `</div>`;
-
-  // Moments
-  html += `<div class="panel"><h2>🎲 Moments of the Tournament</h2><ul class="moments-list">`;
-  if (bigUpset) {
-    const d = DRAWS[bigUpset.ev];
-    html += `<li><span class="moment-key">Biggest upset</span> ${bigUpset.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[bigUpset.r]} — ${esc(recapName(d, bigUpset.winner))} d. ${esc(recapName(d, bigUpset.loser))}</li>`;
-  }
-  if (divisive) {
-    const d = DRAWS[divisive.ev];
-    const winN = divisive.winner === divisive.a ? divisive.aP : divisive.bP;
-    html += `<li><span class="moment-key">Most divisive call</span> ${divisive.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[divisive.r]} — ${esc(recapName(d, divisive.a))} (${divisive.aP}) vs ${esc(recapName(d, divisive.b))} (${divisive.bP}). Winner: ${esc(recapName(d, divisive.winner))} (${winN}/${rc.N} called it).</li>`;
-  }
-  if (mostPickedMen) {
-    const right = champions.men && mostPickedMen.slot === champions.men.slot;
-    html += `<li><span class="moment-key">Most-picked men's title</span> ${esc(mostPickedMen.name)} (${mostPickedMen.n}/${rc.N})${right ? ' ✓' : ' ✗ — he fell'}</li>`;
-  }
-  if (mostPickedWomen) {
-    const right = champions.women && mostPickedWomen.slot === champions.women.slot;
-    html += `<li><span class="moment-key">Most-picked women's title</span> ${esc(mostPickedWomen.name)} (${mostPickedWomen.n}/${rc.N})${right ? ' ✓' : ' ✗ — she fell'}</li>`;
-  }
-  if (sinnerCost) html += `<li><span class="moment-key">${esc(sinnerCost.name)}'s ${ROUND_SHORT[sinnerCost.exitR]} exit</span> cost the field ${sinnerCost.lost.toLocaleString()} combined max pts.</li>`;
-  if (sabaCost) html += `<li><span class="moment-key">${esc(sabaCost.name)}'s ${ROUND_SHORT[sabaCost.exitR]} exit</span> cost the field ${sabaCost.lost.toLocaleString()} combined max pts.</li>`;
-  html += `</ul></div>`;
 
   // Unanimous (latest rounds first; expandable "show all")
   const uniRightLi = (t) => {
@@ -1310,35 +1280,47 @@ function generateFinalRecapText() {
   L.push(`   Chalkiness: ${seedM.seededIn}/8 men's QF and ${seedW.seededIn}/8 women's QF were seeded.`);
   L.push('');
   L.push('   📜 Two debut Grand Slam champions');
-  L.push('     Alexander Zverev finally captures his first major. Mirra Andreeva, 19,');
-  L.push('     lifts her first Slam. First Roland Garros since 2004 (Gaudio & Myskina)');
-  L.push("     where both singles champions are first-time Slam winners.");
+  L.push('     Alexander Zverev beats Cobolli 6-1, 4-6, 6-4, 6-7(5), 6-1 in his fourth Slam');
+  L.push('     final. First German man to win a major since Becker at AO 1996; first man');
+  L.push('     to make Roland Garros his maiden Slam since Nadal 21 years ago.');
+  L.push('     Mirra Andreeva (19) beats Maja Chwalińska 6-3, 6-2. Youngest women\'s RG');
+  L.push('     champion since Seles in 1992; third-youngest women\'s Slam champ of the 21st century.');
   L.push('');
-  L.push('   🌟 Maja Chwalinska — the Cinderella run');
+  L.push('   🌟 Maja Chwalińska — the Cinderella run');
   L.push('     The unseeded Pole tore through the women\'s draw to the final:');
   L.push('     Q. Zheng → Mertens (#23) → Sakkari → Parry → Kalinskaya (#22) →');
-  L.push('     Shnaider (#25) → met Andreeva for the title. Bracket-buster of the tournament.');
+  L.push('     Shnaider (#25) → final vs Andreeva (lost 6-3, 6-2). Bracket-buster of the tournament.');
   L.push('');
   L.push('   🚀 The next gen has arrived');
   L.push('     · Mirra Andreeva (W, 19) — Roland Garros champion');
-  L.push('     · João Fonseca (M, #28) — beat #3 Djokovic in R32, made QF');
-  L.push('     · Jakub Mensik (M, #26) — SF; beat De Minaur, Rublev, Fonseca');
-  L.push('     · Roberto Jodar (M, #27) — first Slam QF, beat Carreño Busta');
-  L.push('     · M. Kouame (M) — knocked out former champion Cilic, made R32');
-  L.push('     · Martín Landaluce (M) — Spanish teenager made R32 on debut');
+  L.push('     · João Fonseca (M, 19, #28) — beat #3 Djokovic in R32, made QF');
+  L.push('     · Jakub Menšík (M, #26) — SF; beat De Minaur, Rublev, Fonseca');
+  L.push('     · Rafa Jódar (M, 19, #27) — first Slam QF on RG main-draw debut');
+  L.push('     · Moïse Kouamé (M, 17) — beat former champion Cilic; youngest Open-era player to');
+  L.push('       topple a major champ at RG. Reached R32.');
+  L.push('     · Martín Landaluce (M) — young Spaniard made R32 on debut');
+  L.push('     Jódar/Fonseca/Kouamé: first trio of teenagers to reach R32 of a major since 2006.');
   L.push('');
   L.push('   👑 When the chalk fell');
   L.push('     Sinner (#1) out R64 to Cerundolo. Sabalenka (#1) stunned by Shnaider (#25) in QF.');
-  L.push('     Swiatek (#3) to Kostyuk R16. Gauff (#4) to Potapova R32. Zverev (#2) the lone');
+  L.push('     Świątek (#3) to Kostyuk R16. Gauff (#4) to Potapova R32. Zverev (#2) the lone');
   L.push('     top-seed left standing.');
   L.push('');
-  L.push('   🥵 The five-set drama (TBA — Michael to fill in)');
+  L.push('   🥵 An all-time marathon edition');
+  L.push('     RG 2026 on pace to match the all-time record of 33 five-set matches (1992, 2001):');
+  L.push('     30+ five-setters were done before the round of 16 had finished. 20+ men\'s singles');
+  L.push('     matches over 4 hours — most since records began in 1999.');
+  L.push('     Headline marathon: JM. Cerundolo d. Martín Landaluce 5h58m in R32 — third-longest');
+  L.push('     match in RG history (behind Santoro/Clément 2004 at 6h33 and Moutet/Giustino 2020');
+  L.push('     at 6h05). Cerundolo had stunned #1 Sinner one round earlier.');
+  L.push('     17-year-old Moïse Kouamé\'s 4h56m R2 win over Vallejo: youngest man to reach R3');
+  L.push('     of a major since Nadal at Wimbledon 2003.');
   L.push('');
   L.push('🎬 ROUND-BY-ROUND');
   rc.byRoundFacts.forEach(f => {
     let head = '';
     if (f.r === 6) head = 'Two first-time Slam champions — Zverev (M) and Andreeva (W, 19).';
-    else if (f.r === 5 && f.played > 0 && f.acc === 1) head = `Family unanimity — ${f.correct}/${f.played} on the semis.`;
+    else if (f.r === 5 && f.played > 0 && f.acc === 1) head = `Family unanimity — every live SF pick correct (${f.correct}/${f.played}). The brackets that survived to the semis all called the winner.`;
     else if (f.upset) {
       const d = DRAWS[f.upset.ev];
       head = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
@@ -1350,14 +1332,6 @@ function generateFinalRecapText() {
     L.push(`   ${f.label.padEnd(6)} ${head}`);
     if (f.played > 0) L.push(`          (Family hit rate: ${f.correct}/${f.played} = ${Math.round(f.acc*100)}%)`);
   });
-  L.push('');
-  L.push('🎲 MOMENTS OF THE TOURNAMENT');
-  if (bigUpset) { const d = DRAWS[bigUpset.ev]; L.push(`   Biggest upset: ${bigUpset.ev==='men'?'M':'W'} ${ROUND_SHORT[bigUpset.r]} — ${recapName(d, bigUpset.winner)} d. ${recapName(d, bigUpset.loser)}`); }
-  if (divisive) { const d = DRAWS[divisive.ev]; const winN = divisive.winner === divisive.a ? divisive.aP : divisive.bP; L.push(`   Most divisive call: ${divisive.ev==='men'?'M':'W'} ${ROUND_SHORT[divisive.r]} — ${recapName(d, divisive.a)} (${divisive.aP}) vs ${recapName(d, divisive.b)} (${divisive.bP}). Winner: ${recapName(d, divisive.winner)} (${winN}/${rc.N} called it).`); }
-  if (mostPickedMen) { const right = champions.men && mostPickedMen.slot === champions.men.slot; L.push(`   Most-picked men's title: ${mostPickedMen.name} (${mostPickedMen.n}/${rc.N})${right?' ✓':' ✗ — he fell'}`); }
-  if (mostPickedWomen) { const right = champions.women && mostPickedWomen.slot === champions.women.slot; L.push(`   Most-picked women's title: ${mostPickedWomen.name} (${mostPickedWomen.n}/${rc.N})${right?' ✓':' ✗ — she fell'}`); }
-  if (sinnerCost) L.push(`   ${sinnerCost.name}'s ${ROUND_SHORT[sinnerCost.exitR]} exit cost the field ${sinnerCost.lost.toLocaleString()} combined max pts.`);
-  if (sabaCost) L.push(`   ${sabaCost.name}'s ${ROUND_SHORT[sabaCost.exitR]} exit cost the field ${sabaCost.lost.toLocaleString()} combined max pts.`);
   L.push('');
   L.push('🤝 UNANIMOUS PICKS');
   if (uniCorr.length) {
