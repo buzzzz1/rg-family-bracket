@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1513';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1513';
+import { DRAWS } from './draws.js?v=20260612-1526';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1526';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -991,11 +991,55 @@ function computeFinalRecap(entries) {
   const bios = {};
   stats.forEach(s => { bios[s.name] = bioFor(s); });
 
+  // Per-round computed facts (used by the Round-by-Round section).
+  const byRoundFacts = [];
+  for (let r = 0; r < 7; r++) {
+    // Biggest seed-gap upset of the round across both events.
+    let upset = null;
+    for (const ev of ['men', 'women']) {
+      const draw = DRAWS[ev], res = state.results[ev];
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        const w = res['r'+r][m]; if (w === null || w === undefined) continue;
+        let a, b;
+        if (r === 0) { a = 2*m; b = 2*m+1; }
+        else { a = res['r'+(r-1)][2*m]; b = res['r'+(r-1)][2*m+1]; }
+        if (a === null || b === null) continue;
+        const loser = w === a ? b : a;
+        const ws = draw[w].seed || 99, ls = draw[loser].seed || 99;
+        if (ls === 99) continue;
+        const gap = (ws === 99 ? 33 - ls : ws - ls);
+        if (gap <= 0) continue;
+        if (!upset || gap > upset.gap) upset = { ev, winner: w, loser, gap };
+      }
+    }
+    // Champion-pick exits at this round (with count of brackets affected).
+    const champOut = [];
+    for (const ev of ['men', 'women']) {
+      const tally = {};
+      for (const e of entries) {
+        const c = e[ev].r6[0];
+        if (c === null || c === undefined) continue;
+        const ex = exitRound(c, state.results[ev]);
+        if (ex !== r) continue;
+        tally[c] = (tally[c] || 0) + 1;
+      }
+      for (const slot in tally) champOut.push({ ev, slot: Number(slot), count: tally[slot] });
+    }
+    champOut.sort((a, b) => b.count - a.count);
+    const fam = famByRound[r];
+    byRoundFacts.push({
+      r, label: ROUND_SHORT[r],
+      acc: fam.p ? fam.c/fam.p : 0, played: fam.p, correct: fam.c,
+      upset, champOut,
+    });
+  }
+
   return {
     N, stats, awards, champions, bios,
     famC, famP, famByRound, famAcc,
     bigUpset, divisive, mostPickedMen, mostPickedWomen, sinnerCost, sabaCost,
     uniCorr, uniWrong, seedM, seedW,
+    byRoundFacts,
   };
 }
 
@@ -1072,57 +1116,90 @@ function renderFinalRecapHTML(rc) {
     html += `</div></div>`;
   }
 
-  // By the numbers
-  const ranked = ROUND_SHORT.map((label, i) => ({ label, ...famByRound[i], acc: famByRound[i].p ? famByRound[i].c/famByRound[i].p : 0 })).filter(x => x.p);
-  const bestR = ranked.slice().sort((a,b) => b.acc - a.acc)[0];
-  const worstR = ranked.slice().sort((a,b) => a.acc - b.acc)[0];
-  html += `<div class="panel numbers"><h2>📊 By The Numbers</h2>`;
-  html += `<div class="big-stat">
-    <div class="big-stat-num">${(famC/famP*100).toFixed(1)}%</div>
-    <div class="big-stat-lbl">Family hit rate across ${famC.toLocaleString()} correct picks out of ${famP.toLocaleString()} live predictions</div>
+  // Stories of the Tournament
+  html += `<div class="panel"><h2>🌟 Stories of the Tournament</h2>
+    <p class="small muted" style="margin: 0 0 14px">Chalkiness check: <strong>${seedM.seededIn}/8</strong> men's QF and <strong>${seedW.seededIn}/8</strong> women's QF were seeded — a chalky draw until the top of the bracket collapsed.</p>`;
+
+  html += `<div class="story-card">
+    <h3>📜 Two debut Grand Slam champions</h3>
+    <p>Alexander Zverev finally captures his first major after years of close calls. The German rolled through Bonzi, Machac, Halys, de Jong, Jodar (#27), and Mensik (#26) before sealing it against Cobolli (#10) in the final.</p>
+    <p>Mirra Andreeva — 19 years old — lifts her first Slam in a breakout year: Ferro, Bassols Ribera, Bouzkova (#27), Teichmann, Cirstea (#18), Kostyuk (#15), and Chwalinska all fell on her way to the title.</p>
+    <p class="story-note">First Roland Garros since 2004 (Gaudio &amp; Myskina) where both singles champions are first-time Grand Slam winners.</p>
   </div>`;
 
-  html += `<div class="best-worst">
-    <div class="bw-card good">
-      <div class="bw-lbl">Strongest round</div>
-      <div class="bw-val">${bestR.label} · ${(bestR.acc*100).toFixed(0)}%</div>
-      <div class="bw-sub">${bestR.c} of ${bestR.p}</div>
-    </div>
-    <div class="bw-card bad">
-      <div class="bw-lbl">Weakest round</div>
-      <div class="bw-val">${worstR.label} · ${(worstR.acc*100).toFixed(0)}%</div>
-      <div class="bw-sub">${worstR.c} of ${worstR.p}</div>
-    </div>
+  html += `<div class="story-card">
+    <h3>🌟 Maja Chwalinska — the Cinderella run</h3>
+    <p>The unseeded Pole tore through the women's draw to the final: Q. Zheng → E. Mertens (#23) → M. Sakkari → D. Parry → A. Kalinskaya (#22) → D. Shnaider (#25, who'd just stunned Sabalenka in the QF) → a meeting with Andreeva for the title.</p>
+    <p>She didn't lift the trophy, but every round was the kind of upset you tell your friends about. The bracket-buster of the tournament.</p>
   </div>`;
 
-  html += `<h3 class="recap-subhead">Hit rate by round</h3>`;
-  ranked.forEach(rr => {
-    const pct = rr.acc * 100;
-    const flavor = rr.label === bestR.label ? 'good' : (rr.label === worstR.label ? 'bad' : '');
-    html += `<div class="round-row ${flavor}">
-      <span class="rr-label">${rr.label}</span>
-      <span class="rr-track"><span class="rr-fill" style="width: ${pct}%"></span></span>
-      <span class="rr-pct">${pct.toFixed(0)}%</span>
-      <span class="rr-count">${rr.c}/${rr.p}</span>
+  html += `<div class="story-card">
+    <h3>🚀 The next gen has arrived</h3>
+    <ul>
+      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion.</li>
+      <li><strong>João Fonseca</strong> (M, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
+      <li><strong>Jakub Mensik</strong> (M, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca to make the last four. Lost to Zverev.</li>
+      <li><strong>Roberto Jodar</strong> (M, #27) — first Slam quarterfinal. Knocked out Carreño Busta in R16.</li>
+      <li><strong>M. Kouame</strong> (M, unseeded) — beat former Slam champion Marin Cilic in R128, reached R32.</li>
+      <li><strong>Martín Landaluce</strong> (M, unseeded) — Spanish teenager made R32 on debut.</li>
+    </ul>
+  </div>`;
+
+  html += `<div class="story-card">
+    <h3>👑 When the chalk fell</h3>
+    <p>The favorites had a brutal week. <strong>Jannik Sinner (#1)</strong> went out R64 to JM. Cerundolo — the men's upset of the tournament. <strong>Aryna Sabalenka (#1)</strong> was stunned by Diana Shnaider (#25) in the QF. <strong>Iga Swiatek (#3)</strong> fell to Kostyuk in R16. <strong>Coco Gauff (#4)</strong> was ousted by Potapova in R32.</p>
+    <p>By the semifinals, the top of both draws had collapsed — and Zverev (#2) was the one to take advantage.</p>
+  </div>`;
+
+  html += `<div class="story-card pending">
+    <h3>🥵 The five-set drama <em style="font-weight: 400; font-style: normal; opacity: .6">(TBA)</em></h3>
+    <p><strong>Michael — drop me the matches</strong> you want highlighted (round, players, why it was wild) and I'll fold them in for the family.</p>
+  </div>`;
+
+  html += `</div>`;
+
+  // Round-by-Round
+  html += `<div class="panel"><h2>🎬 Round-by-Round</h2>
+    <p class="small muted" style="margin: 0 0 12px">The headline moment from each round of the draw.</p>`;
+  rc.byRoundFacts.forEach(f => {
+    let headline = '';
+    if (f.r === 6) {
+      headline = `Two first-time Slam champions — Alexander Zverev (M) and Mirra Andreeva (W, 19).`;
+    } else if (f.r === 5 && f.played > 0 && f.acc === 1) {
+      headline = `Family unanimity — went ${f.correct}/${f.played} on the semifinals.`;
+    } else if (f.upset) {
+      const d = DRAWS[f.upset.ev];
+      let line = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
+      if (f.champOut.length && f.champOut[0].count >= 2) {
+        const co = f.champOut[0];
+        const evLbl = co.ev === 'men' ? "men's" : "women's";
+        line += ` — ${co.count} of ${rc.N} brackets lose their ${evLbl} champion.`;
+      }
+      headline = line;
+    } else {
+      headline = f.played ? `Family went ${f.correct}/${f.played} = ${Math.round(f.acc*100)}%.` : '(no data)';
+    }
+    const stat = f.played > 0
+      ? `Family hit rate: ${f.correct}/${f.played} = ${Math.round(f.acc*100)}%`
+      : '';
+    html += `<div class="rbr-row">
+      <div class="rbr-round">${f.label}</div>
+      <div class="rbr-content">
+        <div class="rbr-headline">${esc(headline)}</div>
+        ${stat ? `<div class="rbr-stat">${esc(stat)}</div>` : ''}
+      </div>
     </div>`;
   });
-
-  html += `<h3 class="recap-subhead">Tournament profile</h3>
-    <p class="small" style="margin: 0">
-      Chalkiness: <strong>${seedM.seededIn}/8</strong> men's quarterfinalists were seeded ·
-      <strong>${seedW.seededIn}/8</strong> women's quarterfinalists were seeded.
-    </p>`;
 
   html += `<details class="recap-details" style="margin-top: 14px">
     <summary>What's a "live prediction"?</summary>
     <div class="explainer-body">
       A pick only counts toward accuracy if the player you chose was actually in
       that match. If your R64 winner already lost in R128, your later picks for
-      them are "dead" and don't count. That's why everyone's denominator is
-      different — better brackets keep more picks alive deeper into the draw.
+      them are "dead" and don't count. That's why brackets accumulate dead picks
+      at different rates.
     </div>
   </details>`;
-
   html += `</div>`;
 
   // Moments
@@ -1161,18 +1238,16 @@ function renderFinalRecapHTML(rc) {
   html += `<div class="uni-side right">
     <h3>We were ALL right</h3>
     <div class="count">${uniCorr.length}</div>
-    <ul>${uniCorr.slice(0, 5).map(uniRightLi).join('')}</ul>
-    ${uniCorr.length > 5 ? `<details class="uni-details">
-      <summary>Show all ${uniCorr.length}</summary>
+    ${uniCorr.length ? `<details class="uni-details">
+      <summary>Show all ${uniCorr.length} matches</summary>
       <ul class="uni-all">${uniCorr.map(uniRightLi).join('')}</ul>
     </details>` : ''}
   </div>`;
   html += `<div class="uni-side wrong">
     <h3>We were ALL wrong</h3>
     <div class="count">${uniWrong.length}</div>
-    <ul>${uniWrong.slice(0, 5).map(uniWrongLi).join('')}</ul>
-    ${uniWrong.length > 5 ? `<details class="uni-details">
-      <summary>Show all ${uniWrong.length}</summary>
+    ${uniWrong.length ? `<details class="uni-details">
+      <summary>Show all ${uniWrong.length} matches</summary>
       <ul class="uni-all">${uniWrong.map(uniWrongLi).join('')}</ul>
     </details>` : ''}
   </div>`;
@@ -1231,24 +1306,50 @@ function generateFinalRecapText() {
   if (champions.men) L.push(`   Men's:   ${champions.men.name} — called by ${champions.men.callers.length ? champions.men.callers.join(', ') : 'NOBODY 😬'}`);
   if (champions.women) L.push(`   Women's: ${champions.women.name} — called by ${champions.women.callers.length ? champions.women.callers.join(', ') : 'NOBODY 😬'}`);
   L.push('');
-  L.push('📊 BY THE NUMBERS');
-  L.push(`   Family hit rate: ${famC}/${famP} live predictions = ${(famC/famP*100).toFixed(1)}%`);
-  const rankedR = ROUND_SHORT.map((r,i) => ({r,...famByRound[i],acc:famByRound[i].p?famByRound[i].c/famByRound[i].p:0})).filter(x=>x.p);
-  const bestRR = rankedR.slice().sort((a,b)=>b.acc-a.acc)[0];
-  const worstRR = rankedR.slice().sort((a,b)=>a.acc-b.acc)[0];
-  L.push(`   Strongest round: ${bestRR.r} (${(bestRR.acc*100).toFixed(0)}% — ${bestRR.c}/${bestRR.p})`);
-  L.push(`   Weakest round:   ${worstRR.r} (${(worstRR.acc*100).toFixed(0)}% — ${worstRR.c}/${worstRR.p})`);
+  L.push('🌟 STORIES OF THE TOURNAMENT');
+  L.push(`   Chalkiness: ${seedM.seededIn}/8 men's QF and ${seedW.seededIn}/8 women's QF were seeded.`);
   L.push('');
-  L.push('   Hit rate by round:');
-  ROUND_SHORT.forEach((r, i) => { const b = famByRound[i]; if (b.p) L.push(`     ${r.padEnd(6)} ${(''+b.c).padStart(3)}/${(''+b.p).padEnd(3)}  ${(b.c/b.p*100).toFixed(0).padStart(3)}%`); });
+  L.push('   📜 Two debut Grand Slam champions');
+  L.push('     Alexander Zverev finally captures his first major. Mirra Andreeva, 19,');
+  L.push('     lifts her first Slam. First Roland Garros since 2004 (Gaudio & Myskina)');
+  L.push("     where both singles champions are first-time Slam winners.");
   L.push('');
-  L.push(`   Tournament profile (chalkiness):`);
-  L.push(`     Men's QF:   ${seedM.seededIn}/8 quarterfinalists were seeded`);
-  L.push(`     Women's QF: ${seedW.seededIn}/8 quarterfinalists were seeded`);
+  L.push('   🌟 Maja Chwalinska — the Cinderella run');
+  L.push('     The unseeded Pole tore through the women\'s draw to the final:');
+  L.push('     Q. Zheng → Mertens (#23) → Sakkari → Parry → Kalinskaya (#22) →');
+  L.push('     Shnaider (#25) → met Andreeva for the title. Bracket-buster of the tournament.');
   L.push('');
-  L.push(`   ("Live" predictions = matches where the player you picked was actually in`);
-  L.push(`   the match. Once your pick is knocked out, downstream picks for them become`);
-  L.push(`   "dead" and don't count.)`);
+  L.push('   🚀 The next gen has arrived');
+  L.push('     · Mirra Andreeva (W, 19) — Roland Garros champion');
+  L.push('     · João Fonseca (M, #28) — beat #3 Djokovic in R32, made QF');
+  L.push('     · Jakub Mensik (M, #26) — SF; beat De Minaur, Rublev, Fonseca');
+  L.push('     · Roberto Jodar (M, #27) — first Slam QF, beat Carreño Busta');
+  L.push('     · M. Kouame (M) — knocked out former champion Cilic, made R32');
+  L.push('     · Martín Landaluce (M) — Spanish teenager made R32 on debut');
+  L.push('');
+  L.push('   👑 When the chalk fell');
+  L.push('     Sinner (#1) out R64 to Cerundolo. Sabalenka (#1) stunned by Shnaider (#25) in QF.');
+  L.push('     Swiatek (#3) to Kostyuk R16. Gauff (#4) to Potapova R32. Zverev (#2) the lone');
+  L.push('     top-seed left standing.');
+  L.push('');
+  L.push('   🥵 The five-set drama (TBA — Michael to fill in)');
+  L.push('');
+  L.push('🎬 ROUND-BY-ROUND');
+  rc.byRoundFacts.forEach(f => {
+    let head = '';
+    if (f.r === 6) head = 'Two first-time Slam champions — Zverev (M) and Andreeva (W, 19).';
+    else if (f.r === 5 && f.played > 0 && f.acc === 1) head = `Family unanimity — ${f.correct}/${f.played} on the semis.`;
+    else if (f.upset) {
+      const d = DRAWS[f.upset.ev];
+      head = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
+      if (f.champOut.length && f.champOut[0].count >= 2) {
+        const co = f.champOut[0]; const evLbl = co.ev === 'men' ? "men's" : "women's";
+        head += ` — ${co.count}/${rc.N} brackets lose their ${evLbl} champion.`;
+      }
+    } else head = f.played ? `Family went ${f.correct}/${f.played} = ${Math.round(f.acc*100)}%.` : '';
+    L.push(`   ${f.label.padEnd(6)} ${head}`);
+    if (f.played > 0) L.push(`          (Family hit rate: ${f.correct}/${f.played} = ${Math.round(f.acc*100)}%)`);
+  });
   L.push('');
   L.push('🎲 MOMENTS OF THE TOURNAMENT');
   if (bigUpset) { const d = DRAWS[bigUpset.ev]; L.push(`   Biggest upset: ${bigUpset.ev==='men'?'M':'W'} ${ROUND_SHORT[bigUpset.r]} — ${recapName(d, bigUpset.winner)} d. ${recapName(d, bigUpset.loser)}`); }
@@ -1260,12 +1361,10 @@ function generateFinalRecapText() {
   L.push('');
   L.push('🤝 UNANIMOUS PICKS');
   if (uniCorr.length) {
-    L.push(`   We were ALL right on ${uniCorr.length} matches. Highlights:`);
-    uniCorr.slice(0,5).forEach(t => { const d = DRAWS[t.ev]; L.push(`     ${t.ev==='men'?'M':'W'} ${ROUND_SHORT[t.r]}: ${recapName(d, t.winner)} d. ${recapName(d, t.loser)}`); });
+    L.push(`   We were ALL right on ${uniCorr.length} matches (full list in the app).`);
   }
   if (uniWrong.length) {
-    L.push(`   We were ALL wrong on ${uniWrong.length} matches:`);
-    uniWrong.slice(0,5).forEach(t => { const d = DRAWS[t.ev]; L.push(`     ${t.ev==='men'?'M':'W'} ${ROUND_SHORT[t.r]}: family had ${recapName(d, t.pick)}, actually ${recapName(d, t.winner)}`); });
+    L.push(`   We were ALL wrong on ${uniWrong.length} matches (full list in the app).`);
   }
   L.push('');
   L.push('🏅 EVERYONE GETS A TROPHY');

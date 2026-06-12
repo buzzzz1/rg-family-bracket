@@ -373,6 +373,45 @@ pre.rules {
   margin-top: 6px; color: var(--ink); line-height: 1.55;
 }
 
+/* Round-by-Round rows (in the new Round-by-Round panel) */
+.rbr-row {
+  display: flex; gap: 14px; padding: 11px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.rbr-row:last-child { border-bottom: 0; }
+.rbr-round {
+  width: 60px; flex-shrink: 0;
+  font-weight: 700; font-size: 14px;
+  color: var(--clay-dark);
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.rbr-content { flex: 1; min-width: 0; font-size: 14px; line-height: 1.5; }
+.rbr-headline { color: var(--ink); }
+.rbr-stat { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+/* Stories of the Tournament cards */
+.story-card {
+  background: linear-gradient(135deg, #fff 0%, #fdf6ec 100%);
+  border: 1px solid var(--line); border-left: 4px solid var(--clay);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+}
+.story-card h3 {
+  margin: 0 0 8px; font-family: 'Young Serif', serif;
+  font-size: 17px; font-weight: 400; color: var(--clay-dark);
+}
+.story-card p { margin: 6px 0; font-size: 14px; line-height: 1.55; }
+.story-card ul { padding-left: 20px; margin: 6px 0; }
+.story-card li { font-size: 14px; line-height: 1.55; margin: 4px 0; }
+.story-card .story-note {
+  font-size: 12px; color: var(--muted); font-style: italic;
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line);
+}
+.story-card.pending {
+  background: #fdf6ec; border-left-color: var(--gold);
+}
+.story-card.pending h3 { color: var(--gold); }
+
 .recap-subhead {
   font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
   color: var(--muted); margin: 18px 0 6px; font-weight: 600;
