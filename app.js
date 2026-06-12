@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1558';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1558';
+import { DRAWS } from './draws.js?v=20260612-1624';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1624';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1069,14 +1069,14 @@ function renderFinalRecapHTML(rc) {
     <div class="actions"><button data-action="copy-final-recap">📋 Copy as text</button></div>
   </div>`;
 
-  // Podium
+  // Podium — DOM order is 1, 2, 3 so mobile (single column) reads top-to-bottom
+  // gold → silver → bronze. CSS reorders the grid columns on desktop to put the
+  // gold card in the middle for the Olympic-style 2-1-3 visual.
   const medals = ['🥇','🥈','🥉'];
   const top3 = stats.slice(0, 3);
-  const reordered = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3;
   html += `<div class="panel"><h2>Podium</h2><div class="podium">`;
-  reordered.forEach((s) => {
-    const i = top3.indexOf(s);
-    html += `<div class="podium-card ${i === 0 ? 'first' : ''}">
+  top3.forEach((s, i) => {
+    html += `<div class="podium-card place-${i+1} ${i === 0 ? 'first' : ''}">
       <div class="medal">${medals[i]}</div>
       <div class="name">${esc(s.name)}</div>
       <div class="pts">${s.total.toLocaleString()} pts</div>
