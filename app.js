@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1553';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1553';
+import { DRAWS } from './draws.js?v=20260612-1558';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1558';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1117,8 +1117,7 @@ function renderFinalRecapHTML(rc) {
   }
 
   // Stories of the Tournament
-  html += `<div class="panel"><h2>🌟 Stories of the Tournament</h2>
-    <p class="small muted" style="margin: 0 0 14px">Chalkiness check: <strong>${seedM.seededIn}/8</strong> men's QF and <strong>${seedW.seededIn}/8</strong> women's QF were seeded — a chalky draw until the top of the bracket collapsed.</p>`;
+  html += `<div class="panel"><h2>🌟 Stories of the Tournament</h2>`;
 
   html += `<div class="story-card">
     <h3>📜 Two debut Grand Slam champions</h3>
@@ -1129,13 +1128,13 @@ function renderFinalRecapHTML(rc) {
   html += `<div class="story-card">
     <h3>🌟 Maja Chwalińska — the Cinderella run</h3>
     <p>The unseeded Pole tore through the women's draw to the final: Q. Zheng → E. Mertens (#23) → M. Sakkari → D. Parry → A. Kalinskaya (#22) → D. Shnaider (#25, who'd just stunned Sabalenka in the QF) → a meeting with Andreeva for the title (lost 6-3, 6-2).</p>
-    <p>She didn't lift the trophy, but every round was the kind of upset you tell your friends about. The bracket-buster of the tournament.</p>
+    <p>She didn't lift the trophy, but the bracket-buster of the tournament.</p>
   </div>`;
 
   html += `<div class="story-card">
     <h3>🚀 The next gen has arrived</h3>
     <ul>
-      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion. Youngest women's RG winner since Seles in 1992.</li>
+      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion.</li>
       <li><strong>João Fonseca</strong> (M, 19, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
       <li><strong>Jakub Menšík</strong> (M, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca. Lost to Zverev.</li>
       <li><strong>Rafa Jódar</strong> (M, 19, #27) — first Slam quarterfinal on his Roland Garros main-draw debut. Fifth man this century to make the QF on a Slam debut.</li>
@@ -1277,7 +1276,6 @@ function generateFinalRecapText() {
   if (champions.women) L.push(`   Women's: ${champions.women.name} — called by ${champions.women.callers.length ? champions.women.callers.join(', ') : 'NOBODY 😬'}`);
   L.push('');
   L.push('🌟 STORIES OF THE TOURNAMENT');
-  L.push(`   Chalkiness: ${seedM.seededIn}/8 men's QF and ${seedW.seededIn}/8 women's QF were seeded.`);
   L.push('');
   L.push('   📜 Two debut Grand Slam champions');
   L.push('     Alexander Zverev beats Cobolli 6-1, 4-6, 6-4, 6-7(5), 6-1 in his fourth Slam');
@@ -1289,7 +1287,7 @@ function generateFinalRecapText() {
   L.push('   🌟 Maja Chwalińska — the Cinderella run');
   L.push('     The unseeded Pole tore through the women\'s draw to the final:');
   L.push('     Q. Zheng → Mertens (#23) → Sakkari → Parry → Kalinskaya (#22) →');
-  L.push('     Shnaider (#25) → final vs Andreeva (lost 6-3, 6-2). Bracket-buster of the tournament.');
+  L.push('     Shnaider (#25) → final vs Andreeva (lost 6-3, 6-2). The bracket-buster of the tournament.');
   L.push('');
   L.push('   🚀 The next gen has arrived');
   L.push('     · Mirra Andreeva (W, 19) — Roland Garros champion');
