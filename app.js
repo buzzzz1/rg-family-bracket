@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1624';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1624';
+import { DRAWS } from './draws.js?v=20260612-1633';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1633';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1136,10 +1136,10 @@ function renderFinalRecapHTML(rc) {
     <ul>
       <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion.</li>
       <li><strong>João Fonseca</strong> (M, 19, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
-      <li><strong>Jakub Menšík</strong> (M, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca. Lost to Zverev.</li>
+      <li><strong>Jakub Menšík</strong> (M, 20, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca. Lost to Zverev.</li>
       <li><strong>Rafa Jódar</strong> (M, 19, #27) — first Slam quarterfinal on his Roland Garros main-draw debut. Fifth man this century to make the QF on a Slam debut.</li>
       <li><strong>Moïse Kouamé</strong> (M, 17, unseeded) — French teenager beat former Slam champion Marin Cilic in his opener — youngest player in the Open era to topple a major champion at Roland Garros. Reached R32.</li>
-      <li><strong>Martín Landaluce</strong> (M, unseeded) — young Spaniard made R32 on his debut.</li>
+      <li><strong>Martín Landaluce</strong> (M, 20, unseeded) — Spaniard made R32 on his debut.</li>
     </ul>
     <p class="story-note">Jódar, Fonseca, and Kouamé were the first trio of teenagers to reach the third round at a major since 2006.</p>
   </div>`;
@@ -1292,11 +1292,11 @@ function generateFinalRecapText() {
   L.push('   🚀 The next gen has arrived');
   L.push('     · Mirra Andreeva (W, 19) — Roland Garros champion');
   L.push('     · João Fonseca (M, 19, #28) — beat #3 Djokovic in R32, made QF');
-  L.push('     · Jakub Menšík (M, #26) — SF; beat De Minaur, Rublev, Fonseca');
+  L.push('     · Jakub Menšík (M, 20, #26) — SF; beat De Minaur, Rublev, Fonseca');
   L.push('     · Rafa Jódar (M, 19, #27) — first Slam QF on RG main-draw debut');
   L.push('     · Moïse Kouamé (M, 17) — beat former champion Cilic; youngest Open-era player to');
   L.push('       topple a major champ at RG. Reached R32.');
-  L.push('     · Martín Landaluce (M) — young Spaniard made R32 on debut');
+  L.push('     · Martín Landaluce (M, 20) — Spaniard made R32 on debut');
   L.push('     Jódar/Fonseca/Kouamé: first trio of teenagers to reach R32 of a major since 2006.');
   L.push('');
   L.push('   👑 When the chalk fell');
