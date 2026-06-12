@@ -240,3 +240,164 @@ pre.rules {
   overflow-x: auto; font-size: 12px; line-height: 1.5;
 }
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+
+/* ---- Tournament wrap-up page ---- */
+.recap-page { padding: 0; }
+.recap-hero {
+  background: linear-gradient(135deg, var(--clay) 0%, var(--clay-dark) 100%);
+  color: #fff; padding: 18px 20px; border-radius: 12px; margin-bottom: 14px;
+}
+.recap-hero h2 {
+  margin: 0 0 4px; font-family: 'Young Serif', serif; font-size: 22px; font-weight: 400;
+}
+.recap-hero .sub { opacity: 0.85; font-size: 13px; }
+.recap-hero .actions { margin-top: 12px; }
+.recap-hero .actions button {
+  background: rgba(255,255,255,.18); color: #fff;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+  font-weight: 600;
+}
+.recap-hero .actions button:hover { background: rgba(255,255,255,.28); }
+
+.podium {
+  display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 8px;
+  align-items: end; margin-bottom: 12px;
+}
+.podium-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px; text-align: center;
+}
+.podium-card.first { border-color: var(--gold); border-width: 2px; padding: 18px 12px; }
+.podium-card .medal { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+.podium-card .name { font-weight: 700; font-size: 15px; }
+.podium-card .pts { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.podium-card .award {
+  color: var(--clay); font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  margin-top: 6px; font-weight: 600;
+}
+
+.also-ran { list-style: none; padding: 0; margin: 0; }
+.also-ran li {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 12px; border: 1px solid var(--line); background: var(--card);
+  border-radius: 8px; margin-bottom: 6px; font-size: 14px;
+}
+.also-ran .rank { font-weight: 700; color: var(--muted); }
+.also-ran .ar-name { flex: 1; font-weight: 600; }
+.also-ran .ar-pts { color: var(--muted); font-size: 13px; }
+.also-ran .ar-award {
+  color: var(--clay); font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  font-weight: 600; text-align: right;
+}
+
+.champ-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.champ-card {
+  background: linear-gradient(135deg, #fdf6ec 0%, #fff 100%);
+  border: 1px solid var(--line); border-left: 4px solid var(--gold);
+  padding: 12px; border-radius: 8px;
+}
+.champ-card .lbl {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+}
+.champ-card .name {
+  font-weight: 700; font-size: 17px; margin: 4px 0; font-family: 'Young Serif', serif;
+}
+.champ-card .called { font-size: 13px; color: var(--ink); }
+.champ-card .called .who { font-weight: 600; }
+.champ-card .called.nobody { color: #b23b3b; font-weight: 600; }
+
+.numbers .explainer {
+  background: #fdf6ec; border-radius: 6px; padding: 10px 12px; font-size: 13px;
+  color: var(--ink); line-height: 1.55; margin: 8px 0 12px;
+}
+.numbers .explainer strong { color: var(--clay-dark); }
+.round-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.round-table th, .round-table td {
+  padding: 6px 8px; text-align: left; border-bottom: 1px dashed var(--line);
+}
+.round-table th {
+  font-size: 11px; text-transform: uppercase; color: var(--muted);
+  font-weight: 600; letter-spacing: .5px;
+}
+.round-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.round-table tr.best { background: #eaf2eb; }
+.round-table tr.worst { background: #f7e4d8; }
+
+.recap-subhead {
+  font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin: 18px 0 6px; font-weight: 600;
+}
+
+.ceiling-bar { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.ceiling-bar .name { width: 64px; font-weight: 600; font-size: 13px; }
+.ceiling-bar .track {
+  display: block; flex: 1; height: 14px;
+  background: var(--line); border-radius: 999px; overflow: hidden;
+}
+.ceiling-bar .fill { display: block; height: 100%; background: var(--court); }
+.ceiling-bar .pct {
+  width: 138px; text-align: right; font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.moments-list { list-style: none; padding: 0; margin: 0; }
+.moments-list li {
+  padding: 8px 0; border-bottom: 1px dashed var(--line);
+  font-size: 14px; line-height: 1.5;
+}
+.moments-list li:last-child { border-bottom: 0; }
+.moments-list .moment-key {
+  font-weight: 600; color: var(--clay-dark); margin-right: 4px;
+}
+
+.unanimous-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.uni-side h3 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin: 0 0 6px;
+}
+.uni-side .count { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+.uni-side.right .count { color: var(--court); }
+.uni-side.wrong .count { color: #b23b3b; }
+.uni-side ul { list-style: none; padding: 0; margin: 0; font-size: 12.5px; line-height: 1.5; }
+.uni-side li { padding: 3px 0; }
+
+.bio-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px; margin-bottom: 10px;
+}
+.bio-card.first { border-color: var(--gold); border-width: 2px; }
+.bio-card .bio-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex-wrap: wrap; gap: 6px; margin-bottom: 4px;
+}
+.bio-card .bio-name { font-size: 18px; font-weight: 700; font-family: 'Young Serif', serif; }
+.bio-card .bio-rank { color: var(--muted); font-size: 13px; }
+.bio-card .bio-award {
+  display: inline-block; background: #fdf6ec; color: var(--clay-dark);
+  font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600;
+}
+.bio-card .bio-tag {
+  font-style: italic; color: var(--ink); font-size: 14px;
+  margin: 8px 0; line-height: 1.45;
+}
+.bio-card .bio-numbers {
+  font-size: 12.5px; color: var(--muted); line-height: 1.55; margin: 4px 0;
+}
+.bio-card .bio-call, .bio-card .bio-heart {
+  font-size: 13px; line-height: 1.5; margin: 4px 0;
+}
+.bio-card .bio-call::before { content: "👍  "; }
+.bio-card .bio-heart::before { content: "💔  "; }
+.bio-card .bio-zinger {
+  margin-top: 8px; font-size: 13px; color: var(--clay-dark);
+  font-weight: 500; font-style: italic;
+}
+
+@media (max-width: 540px) {
+  .podium { grid-template-columns: 1fr; }
+  .champ-row { grid-template-columns: 1fr; }
+  .unanimous-grid { grid-template-columns: 1fr; }
+  .ceiling-bar .pct { width: auto; min-width: 0; }
+  .also-ran .ar-award { display: none; }
+}

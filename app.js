@@ -1,5 +1,7 @@
-import { DRAWS } from './draws.js';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js';
+// NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
+// changed draws.js / firebase-config.js is refetched (assets are cached 4h).
+import { DRAWS } from './draws.js?v=20260612-1456';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1456';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -131,6 +133,39 @@ function isAlive(slot, results) {
   }
   return true;
 }
+
+// Round at which a player exited (lost). -1 if they're still alive or won everything.
+function exitRound(slot, results) {
+  for (let r = 0; r < 7; r++) {
+    const v = results['r' + r][matchOfSlot(slot, r)];
+    if (v !== null && v !== undefined && v !== slot) return r;
+  }
+  return -1;
+}
+// Deepest round an entry has picked player c (i.e., the furthest round they had them winning).
+function deepestStage(entryPicks, ev, c) {
+  let d = -1;
+  for (let r = 0; r < 7; r++) {
+    if (entryPicks[ev]['r' + r][matchOfSlot(c, r)] === c) d = r;
+  }
+  return d;
+}
+// Bracket's theoretical max: if every pick they made had won, regardless of outcome.
+function bracketCeiling(entryPicks) {
+  let t = 0;
+  for (const ev of ['men', 'women']) {
+    for (let r = 0; r < 7; r++) {
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (entryPicks[ev]['r' + r][m] !== null && entryPicks[ev]['r' + r][m] !== undefined) {
+          t += ROUND_POINTS[r];
+        }
+      }
+    }
+  }
+  return t;
+}
+// What stage an entry reaches a player TO by winning round r (R6 win => 'title'; R5 win => 'final'; etc.).
+const REACHED = ['R64', 'R32', 'R16', 'QF', 'SF', 'final', 'title'];
 
 function entryMaxPossible(picks, results) {
   let total = 0;
@@ -673,6 +708,578 @@ async function copyTournamentRecap() {
   }
 }
 
+// ===========================================================================
+// END-OF-TOURNAMENT WRAP-UP RECAP
+// ===========================================================================
+// One big pure compute function so the HTML page and the copyable-text export
+// stay consistent. Returns everything both renderers need.
+function computeFinalRecap(entries) {
+  const N = entries.length;
+  const trueMC = state.results.men.r6[0];
+  const trueWC = state.results.women.r6[0];
+
+  function statsFor(e) {
+    let mCorr=0, mPlay=0, wCorr=0, wPlay=0;
+    let contrarian=0, lonely=0, upsets=0, withCrowd=0;
+    const byRound = ROUND_SIZES.map(() => ({ c: 0, p: 0 }));
+    const heartCandidates = [], standoutCandidates = [];
+
+    for (const ev of ['men', 'women']) {
+      const draw = DRAWS[ev], picks = e[ev], res = state.results[ev];
+      for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        const w = res['r' + r][m]; if (w === null || w === undefined) continue;
+        let a, b;
+        if (r === 0) { a = 2*m; b = 2*m+1; }
+        else { a = res['r'+(r-1)][2*m]; b = res['r'+(r-1)][2*m+1]; }
+        if (a === null || b === null) continue;
+        const p = picks['r'+r][m];
+        if (p !== a && p !== b) continue; // dead pick
+        if (ev === 'men') mPlay++; else wPlay++;
+        byRound[r].p++;
+        if (p === w) {
+          if (ev === 'men') mCorr++; else wCorr++;
+          byRound[r].c++;
+          const others = entries.filter(o => o !== e).filter(o => o[ev]['r'+r][m] === w).length;
+          if (others < (N-1)/2) contrarian++;
+          if (others === 0) lonely++;
+          if (others >= (N-1)/2) withCrowd++;
+          const loser = w === a ? b : a;
+          const ws = draw[w].seed || 99, ls = draw[loser].seed || 99;
+          const upset = (ls !== 99 && (ws === 99 || ws > ls));
+          if (upset) upsets++;
+          const rarity = N - 1 - others;
+          const sc = (r+1)*100 + rarity*15 + (upset ? 20 : 0);
+          standoutCandidates.push({ ev, r, m, slot: w, rarity, upset, sc, key: `${ev}:${r}:${m}:${w}` });
+        }
+      }
+    }
+
+    // Heartbreak: each picked player who exited earlier than their deepest pick.
+    // Dedup key is per-PLAYER so the same player doesn't show up across the field.
+    const seen = new Set();
+    for (const ev of ['men', 'women']) {
+      const res = state.results[ev], picks = e[ev];
+      for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        const c = picks['r'+r][m];
+        if (c === null || c === undefined || seen.has(ev + ':' + c)) continue;
+        seen.add(ev + ':' + c);
+        const deep = deepestStage(e, ev, c);
+        const exit = exitRound(c, res);
+        if (exit === -1 || deep <= exit) continue;
+        let lost = 0;
+        for (let rr = exit; rr <= deep; rr++) lost += ROUND_POINTS[rr];
+        heartCandidates.push({ ev, slot: c, deepestR: deep, exitR: exit, lostPts: lost, key: `${ev}:${c}` });
+      }
+    }
+    heartCandidates.sort((a, b) => b.lostPts - a.lostPts);
+    standoutCandidates.sort((a, b) => b.sc - a.sc);
+
+    const sM = score(e.men, state.results.men).total;
+    const sW = score(e.women, state.results.women).total;
+    return {
+      name: e.name, e,
+      sM, sW, total: sM + sW,
+      ceiling: bracketCeiling(e),
+      mCorr, mPlay, wCorr, wPlay,
+      mAcc: mPlay ? mCorr/mPlay : 0, wAcc: wPlay ? wCorr/wPlay : 0,
+      correctTotal: mCorr + wCorr, playedTotal: mPlay + wPlay,
+      accuracy: (mPlay + wPlay) ? (mCorr + wCorr) / (mPlay + wPlay) : 0,
+      byRound, contrarian, lonely, upsets, withCrowd,
+      heartCandidates, standoutCandidates,
+      champM: e.men.r6[0], champW: e.women.r6[0],
+    };
+  }
+
+  const stats = entries.map(statsFor).sort((a,b) => b.total - a.total);
+  stats.forEach((s,i) => { s.rank = (i>0 && stats[i-1].total === s.total) ? stats[i-1].rank : i+1; });
+
+  // Dedup standouts and heartbreaks across the field — top rank first, others fall to next-best distinct.
+  const usedStand = new Set(), usedHeart = new Set();
+  for (const s of stats) {
+    s.standout = s.standoutCandidates.find(c => !usedStand.has(c.key)) || s.standoutCandidates[0] || null;
+    if (s.standout) usedStand.add(s.standout.key);
+    s.heartbreak = s.heartCandidates.find(c => !usedHeart.has(c.key)) || s.heartCandidates[0] || null;
+    if (s.heartbreak) usedHeart.add(s.heartbreak.key);
+  }
+
+  // Champions
+  const calledMChamp = (trueMC === null || trueMC === undefined) ? [] : stats.filter(s => s.champM === trueMC).map(s => s.name);
+  const calledWChamp = (trueWC === null || trueWC === undefined) ? [] : stats.filter(s => s.champW === trueWC).map(s => s.name);
+  const champions = {
+    men: (trueMC === null || trueMC === undefined) ? null : { slot: trueMC, name: DRAWS.men[trueMC].name, callers: calledMChamp },
+    women: (trueWC === null || trueWC === undefined) ? null : { slot: trueWC, name: DRAWS.women[trueWC].name, callers: calledWChamp },
+  };
+
+  // Family aggregate
+  let famC = 0, famP = 0;
+  const famByRound = ROUND_SIZES.map(() => ({ c: 0, p: 0 }));
+  stats.forEach(s => {
+    famC += s.correctTotal; famP += s.playedTotal;
+    s.byRound.forEach((b, r) => { famByRound[r].c += b.c; famByRound[r].p += b.p; });
+  });
+  const famAcc = famByRound.map(b => b.p ? b.c/b.p : 0);
+
+  // Awards — one per person, each unique.
+  const awards = {};
+  const remaining = () => stats.filter(s => !awards[s.name]);
+  awards[stats[0].name] = { title: '🏆 Champion of the Pool', detail: `${stats[0].total} pts. Took the crown.` };
+  { const r = remaining().slice().sort((a,b) => b.accuracy - a.accuracy)[0];
+    if (r) awards[r.name] = { title: '🎯 The Oracle', detail: `Best accuracy at ${(r.accuracy*100).toFixed(1)}% — read the draws the cleanest.` }; }
+  { const r = remaining().slice().sort((a,b) => b.mCorr - a.mCorr)[0];
+    if (r) awards[r.name] = { title: "🎾 Men's Singles MVP", detail: `${r.mCorr} men's matches called — top of the field.` }; }
+  { const r = remaining().slice().sort((a,b) => b.wCorr - a.wCorr)[0];
+    if (r) awards[r.name] = { title: "🎀 Women's Singles MVP", detail: `${r.wCorr} women's matches called — top of the field.` }; }
+  { const r = remaining().slice().sort((a,b) => b.contrarian - a.contrarian)[0];
+    if (r && r.contrarian > 0) awards[r.name] = {
+      title: '🃏 The Maverick',
+      detail: `${r.contrarian} correct picks against the family consensus${r.lonely ? ` (${r.lonely} only-they-saw-it calls)` : ''}.`,
+    }; }
+  // Remaining people get a custom award: their best round-vs-family-avg gap, or Steady Hand fallback.
+  for (const last of remaining()) {
+    let bestR = -1, bestGap = -Infinity;
+    last.byRound.forEach((b, r) => {
+      if (!b.p) return;
+      const gap = (b.c/b.p) - famAcc[r];
+      if (gap > bestGap) { bestGap = gap; bestR = r; }
+    });
+    if (bestR >= 0 && bestGap > 0.001) {
+      awards[last.name] = {
+        title: `🧗 ${ROUND_SHORT[bestR]} Specialist`,
+        detail: `Beat the family ${ROUND_SHORT[bestR]} hit rate by ${(bestGap*100).toFixed(0)} pts (${(last.byRound[bestR].c/last.byRound[bestR].p*100).toFixed(0)}% vs ${(famAcc[bestR]*100).toFixed(0)}% field).`,
+      };
+    } else {
+      awards[last.name] = {
+        title: '🧭 The Steady Hand',
+        detail: `${last.total} pts at ${(last.accuracy*100).toFixed(1)}% accuracy — held the middle without big swings.`,
+      };
+    }
+  }
+
+  // Moments
+  let bigUpset = null;
+  for (const ev of ['men', 'women']) {
+    const draw = DRAWS[ev], res = state.results[ev];
+    for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = res['r'+r][m]; if (w === null || w === undefined) continue;
+      let a, b; if (r === 0) { a = 2*m; b = 2*m+1; } else { a = res['r'+(r-1)][2*m]; b = res['r'+(r-1)][2*m+1]; }
+      if (a === null || b === null) continue;
+      const loser = w === a ? b : a;
+      const ws = draw[w].seed || 99, ls = draw[loser].seed || 99;
+      if (ls === 99) continue;
+      const gap = (ws === 99 ? 33 - ls : ws - ls);
+      if (gap <= 0) continue;
+      const sc = gap * (r+1);
+      if (!bigUpset || sc > bigUpset.sc) bigUpset = { ev, r, m, winner: w, loser, gap, sc };
+    }
+  }
+
+  let divisive = null, divScore = -1;
+  for (const ev of ['men', 'women']) {
+    const res = state.results[ev];
+    for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = res['r'+r][m]; if (w === null || w === undefined) continue;
+      let a, b; if (r === 0) { a = 2*m; b = 2*m+1; } else { a = res['r'+(r-1)][2*m]; b = res['r'+(r-1)][2*m+1]; }
+      if (a === null || b === null) continue;
+      const aP = entries.filter(en => en[ev]['r'+r][m] === a).length;
+      const bP = entries.filter(en => en[ev]['r'+r][m] === b).length;
+      if (aP + bP < N) continue;
+      const tightness = N - Math.abs(aP - bP);
+      const sc = tightness * (r + 1) * 10;
+      if (sc > divScore) { divScore = sc; divisive = { ev, r, m, a, b, aP, bP, winner: w }; }
+    }
+  }
+
+  const champCount = { men: {}, women: {} };
+  for (const e of entries) for (const ev of ['men', 'women']) {
+    const c = e[ev].r6[0];
+    if (c !== null && c !== undefined) champCount[ev][c] = (champCount[ev][c] || 0) + 1;
+  }
+  function topPick(ev) {
+    const ents = Object.entries(champCount[ev]);
+    if (!ents.length) return null;
+    const [slot, n] = ents.sort((a,b) => b[1] - a[1])[0];
+    return { slot: Number(slot), n, name: DRAWS[ev][slot].name };
+  }
+  const mostPickedMen = topPick('men'), mostPickedWomen = topPick('women');
+
+  function exitCost(ev, slot) {
+    let lost = 0;
+    const res = state.results[ev];
+    const ex = exitRound(slot, res);
+    if (ex === -1) return null;
+    for (const e of entries) {
+      const deep = deepestStage(e, ev, slot);
+      if (deep < ex) continue;
+      for (let r = ex; r <= deep; r++) lost += ROUND_POINTS[r];
+    }
+    return { lost, exitR: ex, name: DRAWS[ev][slot].name };
+  }
+  const sinnerCost = (mostPickedMen && champions.men && mostPickedMen.slot !== champions.men.slot) ? exitCost('men', mostPickedMen.slot) : null;
+  const sabaCost = (mostPickedWomen && champions.women && mostPickedWomen.slot !== champions.women.slot) ? exitCost('women', mostPickedWomen.slot) : null;
+
+  // Unanimous (every entry's pick was for one of the actual contenders)
+  const uniCorr = [], uniWrong = [];
+  for (const ev of ['men', 'women']) {
+    const res = state.results[ev];
+    for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = res['r'+r][m]; if (w === null || w === undefined) continue;
+      let a, b; if (r === 0) { a = 2*m; b = 2*m+1; } else { a = res['r'+(r-1)][2*m]; b = res['r'+(r-1)][2*m+1]; }
+      if (a === null || b === null) continue;
+      const aP = entries.filter(en => en[ev]['r'+r][m] === a).length;
+      const bP = entries.filter(en => en[ev]['r'+r][m] === b).length;
+      if (aP + bP < N) continue;
+      if (aP === N) (w === a ? uniCorr : uniWrong).push({ ev, r, m, winner: w, loser: w === a ? b : a, pick: a });
+      else if (bP === N) (w === b ? uniCorr : uniWrong).push({ ev, r, m, winner: w, loser: w === b ? a : b, pick: b });
+    }
+  }
+  uniCorr.sort((a, b) => b.r - a.r);
+  uniWrong.sort((a, b) => b.r - a.r);
+
+  // Seeds at QF — R3 winners advance to QF (R4).
+  function seedsAtQF(ev) {
+    const res = state.results[ev], draw = DRAWS[ev];
+    let seededIn = 0;
+    for (let m = 0; m < ROUND_SIZES[3]; m++) {
+      const w = res['r3'][m];
+      if (w !== null && w !== undefined && draw[w].seed) seededIn++;
+    }
+    return { seededIn };
+  }
+  const seedM = seedsAtQF('men'), seedW = seedsAtQF('women');
+
+  // Bios — assembled here once so HTML and text renderers stay aligned.
+  function bioFor(s) {
+    const a = awards[s.name];
+    let tag = '';
+    if (a.title.includes('Champion of the Pool')) tag = 'Played the contrarian title card and watched it pay all the way through.';
+    else if (a.title.includes('Oracle')) tag = 'Highest pure accuracy in the family — just read the draw cleaner than anyone.';
+    else if (a.title.includes("Men's Singles MVP")) tag = `Best men's bracket in the field with ${s.mCorr} correct calls.`;
+    else if (a.title.includes("Women's Singles MVP")) tag = `Best women's bracket in the field with ${s.wCorr} correct calls.`;
+    else if (a.title.includes('Maverick')) tag = `Made ${s.contrarian} correct calls the rest of the family didn't see — the most distinctive bracket in the pool.`;
+    else tag = a.detail;
+
+    const eff = s.ceiling ? Math.round(s.total/s.ceiling*100) : null;
+    const numbersLine = `${s.total.toLocaleString()} pts on ${s.correctTotal}/${s.playedTotal} live predictions = ${(s.accuracy*100).toFixed(1)}% accuracy. Men's ${s.mCorr}/${s.mPlay} · Women's ${s.wCorr}/${s.wPlay}. Cashed ${eff != null ? eff+'%' : '—'} of the bracket's theoretical max (${s.ceiling.toLocaleString()} pts).`;
+
+    let callLine = '';
+    if (s.standout) {
+      const d = DRAWS[s.standout.ev];
+      const stage = s.standout.r >= 3 ? ` (${ROUND_SHORT[s.standout.r]})` : '';
+      if (s.standout.upset) callLine = `Called the upset of ${recapName(d, s.standout.slot)}${stage} when the seeds said otherwise.`;
+      else if (s.standout.rarity >= N - 2) callLine = `Lone-wolf call: ${recapName(d, s.standout.slot)}${stage} — nobody else had it.`;
+      else if (s.standout.rarity >= Math.ceil((N-1)/2)) callLine = `Contrarian read: ${recapName(d, s.standout.slot)}${stage} when the family was split the other way.`;
+      else callLine = `Standout call: ${recapName(d, s.standout.slot)}${stage}.`;
+    }
+    let heartLine = '';
+    if (s.heartbreak) {
+      const d = DRAWS[s.heartbreak.ev];
+      heartLine = `One that got away: had ${recapName(d, s.heartbreak.slot)} going to the ${REACHED[s.heartbreak.deepestR]}, fell in ${ROUND_SHORT[s.heartbreak.exitR]} (−${s.heartbreak.lostPts.toLocaleString()} max).`;
+    }
+
+    let zinger = '';
+    if (a.title.includes('Champion of the Pool')) zinger = 'Holds the trophy until the next Slam.';
+    else if (a.title.includes('Oracle')) zinger = "If only points scaled with accuracy, this'd be the trophy.";
+    else if (a.title.includes("Men's Singles MVP")) zinger = "Imagine if the women's side had cooperated.";
+    else if (a.title.includes("Women's Singles MVP")) zinger = 'Best WTA eye in the family — pure forecasting skill.';
+    else if (a.title.includes('Maverick')) zinger = "The contrarian math eats well most Slams — this just wasn't the one.";
+    else zinger = 'The Switzerland of the family — locked in a steady mid-table finish.';
+
+    return { tag, numbersLine, callLine, heartLine, zinger };
+  }
+
+  const bios = {};
+  stats.forEach(s => { bios[s.name] = bioFor(s); });
+
+  return {
+    N, stats, awards, champions, bios,
+    famC, famP, famByRound, famAcc,
+    bigUpset, divisive, mostPickedMen, mostPickedWomen, sinnerCost, sabaCost,
+    uniCorr, uniWrong, seedM, seedW,
+  };
+}
+
+function recapView() {
+  const rawEntries = Object.values(state.entries).filter(e => e.name).map(e => ({
+    id: e.id, name: e.name,
+    men: normalizePicks(e.men), women: normalizePicks(e.women),
+  }));
+  if (rawEntries.length === 0) {
+    return `<div class="panel"><h2>🏆 Tournament Wrap-Up</h2><p class="muted">No brackets to recap yet.</p></div>`;
+  }
+  if (!hasResults()) {
+    return `<div class="panel"><h2>🏆 Tournament Wrap-Up</h2><p class="muted">No results entered yet — the wrap-up fills in as the tournament unfolds.</p></div>`;
+  }
+  return renderFinalRecapHTML(computeFinalRecap(rawEntries));
+}
+
+function renderFinalRecapHTML(rc) {
+  const { stats, awards, champions, bios, famByRound, famC, famP, bigUpset, divisive,
+    mostPickedMen, mostPickedWomen, sinnerCost, sabaCost, uniCorr, uniWrong, seedM, seedW } = rc;
+  const stripIcon = (t) => t.replace(/^[^\w]+\s/, '');
+
+  let html = `<div class="recap-page">`;
+  html += `<div class="recap-hero">
+    <h2>🏆 Tournament Wrap-Up</h2>
+    <div class="sub">Roland Garros 2026 · the family vs the draw</div>
+    <div class="actions"><button data-action="copy-final-recap">📋 Copy as text</button></div>
+  </div>`;
+
+  // Podium
+  const medals = ['🥇','🥈','🥉'];
+  const top3 = stats.slice(0, 3);
+  const reordered = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3;
+  html += `<div class="panel"><h2>Podium</h2><div class="podium">`;
+  reordered.forEach((s) => {
+    const i = top3.indexOf(s);
+    html += `<div class="podium-card ${i === 0 ? 'first' : ''}">
+      <div class="medal">${medals[i]}</div>
+      <div class="name">${esc(s.name)}</div>
+      <div class="pts">${s.total.toLocaleString()} pts</div>
+      <div class="award">${esc(stripIcon(awards[s.name].title))}</div>
+    </div>`;
+  });
+  html += `</div>`;
+  if (stats.length > 3) {
+    html += `<ul class="also-ran">`;
+    stats.slice(3).forEach((s) => {
+      html += `<li>
+        <span class="rank">${s.rank}.</span>
+        <span class="ar-name">${esc(s.name)}</span>
+        <span class="ar-pts">${s.total.toLocaleString()} pts</span>
+        <span class="ar-award" title="${esc(awards[s.name].title)}">${esc(stripIcon(awards[s.name].title))}</span>
+      </li>`;
+    });
+    html += `</ul>`;
+  }
+  const last = stats.at(-1);
+  html += `<p class="small muted" style="margin: 8px 0 0">${(stats[0].total - last.total).toLocaleString()} pts cover the field, 1st to last.</p>`;
+  html += `</div>`;
+
+  // Champions
+  if (champions.men || champions.women) {
+    html += `<div class="panel"><h2>👑 Roland Garros Champions</h2><div class="champ-row">`;
+    [['men', "Men's"], ['women', "Women's"]].forEach(([k, lbl]) => {
+      const c = champions[k]; if (!c) return;
+      html += `<div class="champ-card">
+        <div class="lbl">${lbl}</div>
+        <div class="name">${esc(c.name)}</div>
+        <div class="called ${c.callers.length ? '' : 'nobody'}">${c.callers.length
+          ? `Called by <span class="who">${esc(c.callers.join(', '))}</span>`
+          : 'Called by NOBODY 😬'}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // By the numbers
+  html += `<div class="panel numbers"><h2>📊 By The Numbers</h2>`;
+  html += `<div class="explainer">
+    Across all ${rc.N} brackets we made <strong>${famP.toLocaleString()}</strong> live predictions on matches that happened — and got <strong>${famC.toLocaleString()}</strong> right (<strong>${(famC/famP*100).toFixed(1)}%</strong> overall).
+    <br><br>
+    <strong>How "live" works:</strong> a pick only counts toward accuracy if the player you chose was actually in that match. If your R64 winner already lost in R128, your later picks for them are "dead" and don't count. That's why everyone's denominator is different — better brackets keep more picks alive deeper into the draw.
+  </div>`;
+
+  const ranked = ROUND_SHORT.map((label, i) => ({ label, ...famByRound[i], acc: famByRound[i].p ? famByRound[i].c/famByRound[i].p : 0 })).filter(x => x.p);
+  const bestR = ranked.slice().sort((a,b) => b.acc - a.acc)[0];
+  const worstR = ranked.slice().sort((a,b) => a.acc - b.acc)[0];
+  html += `<table class="round-table"><thead><tr>
+    <th>Round</th><th class="num">Correct</th><th class="num">Played</th><th class="num">Hit rate</th>
+    </tr></thead><tbody>`;
+  ranked.forEach(rr => {
+    const cls = rr.label === bestR.label ? 'best' : (rr.label === worstR.label ? 'worst' : '');
+    html += `<tr class="${cls}">
+      <td>${rr.label}</td>
+      <td class="num">${rr.c}</td>
+      <td class="num">${rr.p}</td>
+      <td class="num"><strong>${(rr.acc*100).toFixed(0)}%</strong></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  html += `<p class="small muted" style="margin: 8px 0 14px">Strongest as a family: <strong>${bestR.label}</strong> (${(bestR.acc*100).toFixed(0)}%) · Weakest: <strong>${worstR.label}</strong> (${(worstR.acc*100).toFixed(0)}%).</p>`;
+
+  html += `<h3 class="recap-subhead">Score vs theoretical max</h3>
+    <p class="small muted" style="margin: 0 0 10px">If every pick you made had won, regardless of outcome.</p>`;
+  stats.slice().sort((a,b) => b.total - a.total).forEach(s => {
+    const eff = s.ceiling ? (s.total/s.ceiling*100) : 0;
+    html += `<div class="ceiling-bar">
+      <span class="name">${esc(s.name)}</span>
+      <span class="track"><span class="fill" style="width: ${eff}%"></span></span>
+      <span class="pct">${s.total.toLocaleString()} / ${s.ceiling.toLocaleString()} (${eff.toFixed(0)}%)</span>
+    </div>`;
+  });
+
+  html += `<h3 class="recap-subhead">Seeds at the QF (chalkiness check)</h3>
+    <p class="small" style="margin: 0">Men's: <strong>${seedM.seededIn}/8</strong> quarterfinalists were seeded · Women's: <strong>${seedW.seededIn}/8</strong> quarterfinalists were seeded</p>`;
+  html += `</div>`;
+
+  // Moments
+  html += `<div class="panel"><h2>🎲 Moments of the Tournament</h2><ul class="moments-list">`;
+  if (bigUpset) {
+    const d = DRAWS[bigUpset.ev];
+    html += `<li><span class="moment-key">Biggest upset</span> ${bigUpset.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[bigUpset.r]} — ${esc(recapName(d, bigUpset.winner))} d. ${esc(recapName(d, bigUpset.loser))}</li>`;
+  }
+  if (divisive) {
+    const d = DRAWS[divisive.ev];
+    const winN = divisive.winner === divisive.a ? divisive.aP : divisive.bP;
+    html += `<li><span class="moment-key">Most divisive call</span> ${divisive.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[divisive.r]} — ${esc(recapName(d, divisive.a))} (${divisive.aP}) vs ${esc(recapName(d, divisive.b))} (${divisive.bP}). Winner: ${esc(recapName(d, divisive.winner))} (${winN}/${rc.N} called it).</li>`;
+  }
+  if (mostPickedMen) {
+    const right = champions.men && mostPickedMen.slot === champions.men.slot;
+    html += `<li><span class="moment-key">Most-picked men's title</span> ${esc(mostPickedMen.name)} (${mostPickedMen.n}/${rc.N})${right ? ' ✓' : ' ✗ — he fell'}</li>`;
+  }
+  if (mostPickedWomen) {
+    const right = champions.women && mostPickedWomen.slot === champions.women.slot;
+    html += `<li><span class="moment-key">Most-picked women's title</span> ${esc(mostPickedWomen.name)} (${mostPickedWomen.n}/${rc.N})${right ? ' ✓' : ' ✗ — she fell'}</li>`;
+  }
+  if (sinnerCost) html += `<li><span class="moment-key">${esc(sinnerCost.name)}'s ${ROUND_SHORT[sinnerCost.exitR]} exit</span> cost the field ${sinnerCost.lost.toLocaleString()} combined max pts.</li>`;
+  if (sabaCost) html += `<li><span class="moment-key">${esc(sabaCost.name)}'s ${ROUND_SHORT[sabaCost.exitR]} exit</span> cost the field ${sabaCost.lost.toLocaleString()} combined max pts.</li>`;
+  html += `</ul></div>`;
+
+  // Unanimous
+  html += `<div class="panel"><h2>🤝 Unanimous Picks</h2><div class="unanimous-grid">`;
+  html += `<div class="uni-side right">
+    <h3>We were ALL right</h3>
+    <div class="count">${uniCorr.length}</div>
+    <ul>`;
+  uniCorr.slice(0, 5).forEach(t => {
+    const d = DRAWS[t.ev];
+    html += `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: ${esc(recapName(d, t.winner))} d. ${esc(recapName(d, t.loser))}</li>`;
+  });
+  html += `</ul></div>`;
+  html += `<div class="uni-side wrong">
+    <h3>We were ALL wrong</h3>
+    <div class="count">${uniWrong.length}</div>
+    <ul>`;
+  uniWrong.slice(0, 5).forEach(t => {
+    const d = DRAWS[t.ev];
+    html += `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: had ${esc(recapName(d, t.pick))} — actually ${esc(recapName(d, t.winner))}</li>`;
+  });
+  html += `</ul></div></div></div>`;
+
+  // The People — bios with award embedded
+  html += `<div class="panel"><h2>✨ The People</h2>`;
+  const ord = ['1st','2nd','3rd','4th','5th','6th','7th'];
+  stats.forEach(s => {
+    const b = bios[s.name];
+    const a = awards[s.name];
+    html += `<div class="bio-card ${s.rank === 1 ? 'first' : ''}">
+      <div class="bio-head">
+        <div>
+          <span class="bio-name">${esc(s.name)}</span>
+          <span class="bio-rank"> — ${ord[s.rank-1] || (s.rank + 'th')}, ${s.total.toLocaleString()} pts</span>
+        </div>
+        <span class="bio-award">${esc(a.title)}</span>
+      </div>
+      <div class="bio-tag">${esc(b.tag)}</div>
+      <div class="bio-numbers">${esc(b.numbersLine)}</div>
+      ${b.callLine ? `<div class="bio-call">${esc(b.callLine)}</div>` : ''}
+      ${b.heartLine ? `<div class="bio-heart">${esc(b.heartLine)}</div>` : ''}
+      <div class="bio-zinger">${esc(b.zinger)}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+function generateFinalRecapText() {
+  const rawEntries = Object.values(state.entries).filter(e => e.name).map(e => ({
+    id: e.id, name: e.name,
+    men: normalizePicks(e.men), women: normalizePicks(e.women),
+  }));
+  if (rawEntries.length === 0 || !hasResults()) return 'No tournament results yet.';
+
+  const rc = computeFinalRecap(rawEntries);
+  const { stats, awards, champions, bios, famByRound, famC, famP,
+    bigUpset, divisive, mostPickedMen, mostPickedWomen, sinnerCost, sabaCost,
+    uniCorr, uniWrong, seedM, seedW } = rc;
+  const L = [];
+  L.push('🏆 KIWI HOUSE BRACKET — TOURNAMENT WRAP-UP');
+  L.push('Roland Garros 2026');
+  L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  L.push('');
+  L.push('🥇 PODIUM');
+  const medals = ['🥇','🥈','🥉'];
+  stats.slice(0, 3).forEach((s, i) => L.push(`   ${medals[i]} ${s.name.padEnd(8)} ${String(s.total).padStart(4)} pts`));
+  stats.slice(3).forEach(s => L.push(`   ${s.rank}. ${s.name.padEnd(8)} ${String(s.total).padStart(4)} pts`));
+  L.push(`   Spread: ${stats[0].total - stats.at(-1).total} pts between 1st and last.`);
+  L.push('');
+  L.push('👑 ROLAND GARROS CHAMPIONS');
+  if (champions.men) L.push(`   Men's:   ${champions.men.name} — called by ${champions.men.callers.length ? champions.men.callers.join(', ') : 'NOBODY 😬'}`);
+  if (champions.women) L.push(`   Women's: ${champions.women.name} — called by ${champions.women.callers.length ? champions.women.callers.join(', ') : 'NOBODY 😬'}`);
+  L.push('');
+  L.push('📊 BY THE NUMBERS');
+  L.push(`   Across all ${rc.N} brackets we made ${famP} live predictions on matches that happened.`);
+  L.push(`   We got ${famC} right — a ${(famC/famP*100).toFixed(1)}% overall hit rate.`);
+  L.push('');
+  L.push(`   How "live" works: only matches where the player you chose was actually in the`);
+  L.push(`   match count toward accuracy. Once your pick gets knocked out, downstream picks`);
+  L.push(`   for them become "dead" and don't count — different brackets keep different`);
+  L.push(`   picks alive, which is why everyone's denominator is different.`);
+  L.push('');
+  L.push('   Hit rate by round:');
+  ROUND_SHORT.forEach((r, i) => { const b = famByRound[i]; if (b.p) L.push(`     ${r.padEnd(6)} ${(''+b.c).padStart(3)}/${(''+b.p).padEnd(3)}  ${(b.c/b.p*100).toFixed(0).padStart(3)}%`); });
+  const rankedR = ROUND_SHORT.map((r,i) => ({r,...famByRound[i],acc:famByRound[i].p?famByRound[i].c/famByRound[i].p:0})).filter(x=>x.p);
+  const bestRR = rankedR.slice().sort((a,b)=>b.acc-a.acc)[0];
+  const worstRR = rankedR.slice().sort((a,b)=>a.acc-b.acc)[0];
+  L.push(`   Strongest: ${bestRR.r} (${(bestRR.acc*100).toFixed(0)}%) · Weakest: ${worstRR.r} (${(worstRR.acc*100).toFixed(0)}%)`);
+  L.push('');
+  L.push(`   Score vs theoretical max:`);
+  stats.slice().sort((a,b)=>b.total-a.total).forEach(s => {
+    const eff = s.ceiling ? (s.total/s.ceiling*100).toFixed(0) : '—';
+    L.push(`     ${s.name.padEnd(8)} ${(''+s.total).padStart(4)} / ${(''+s.ceiling).padStart(4)}  =  ${eff}% cashed`);
+  });
+  L.push('');
+  L.push(`   Seeds at the QF (chalkiness check):`);
+  L.push(`     Men's: ${seedM.seededIn}/8 · Women's: ${seedW.seededIn}/8`);
+  L.push('');
+  L.push('🎲 MOMENTS OF THE TOURNAMENT');
+  if (bigUpset) { const d = DRAWS[bigUpset.ev]; L.push(`   Biggest upset: ${bigUpset.ev==='men'?'M':'W'} ${ROUND_SHORT[bigUpset.r]} — ${recapName(d, bigUpset.winner)} d. ${recapName(d, bigUpset.loser)}`); }
+  if (divisive) { const d = DRAWS[divisive.ev]; const winN = divisive.winner === divisive.a ? divisive.aP : divisive.bP; L.push(`   Most divisive call: ${divisive.ev==='men'?'M':'W'} ${ROUND_SHORT[divisive.r]} — ${recapName(d, divisive.a)} (${divisive.aP}) vs ${recapName(d, divisive.b)} (${divisive.bP}). Winner: ${recapName(d, divisive.winner)} (${winN}/${rc.N} called it).`); }
+  if (mostPickedMen) { const right = champions.men && mostPickedMen.slot === champions.men.slot; L.push(`   Most-picked men's title: ${mostPickedMen.name} (${mostPickedMen.n}/${rc.N})${right?' ✓':' ✗ — he fell'}`); }
+  if (mostPickedWomen) { const right = champions.women && mostPickedWomen.slot === champions.women.slot; L.push(`   Most-picked women's title: ${mostPickedWomen.name} (${mostPickedWomen.n}/${rc.N})${right?' ✓':' ✗ — she fell'}`); }
+  if (sinnerCost) L.push(`   ${sinnerCost.name}'s ${ROUND_SHORT[sinnerCost.exitR]} exit cost the field ${sinnerCost.lost.toLocaleString()} combined max pts.`);
+  if (sabaCost) L.push(`   ${sabaCost.name}'s ${ROUND_SHORT[sabaCost.exitR]} exit cost the field ${sabaCost.lost.toLocaleString()} combined max pts.`);
+  L.push('');
+  L.push('🤝 UNANIMOUS PICKS');
+  if (uniCorr.length) {
+    L.push(`   We were ALL right on ${uniCorr.length} matches. Highlights:`);
+    uniCorr.slice(0,5).forEach(t => { const d = DRAWS[t.ev]; L.push(`     ${t.ev==='men'?'M':'W'} ${ROUND_SHORT[t.r]}: ${recapName(d, t.winner)} d. ${recapName(d, t.loser)}`); });
+  }
+  if (uniWrong.length) {
+    L.push(`   We were ALL wrong on ${uniWrong.length} matches:`);
+    uniWrong.slice(0,5).forEach(t => { const d = DRAWS[t.ev]; L.push(`     ${t.ev==='men'?'M':'W'} ${ROUND_SHORT[t.r]}: family had ${recapName(d, t.pick)}, actually ${recapName(d, t.winner)}`); });
+  }
+  L.push('');
+  L.push('🏅 EVERYONE GETS A TROPHY');
+  stats.forEach(s => { const a = awards[s.name]; L.push(`   ${a.title} — ${s.name}`); L.push(`      ${a.detail}`); });
+  L.push('');
+  L.push('✨ THE PEOPLE');
+  const ord = ['1st','2nd','3rd','4th','5th','6th','7th'];
+  stats.forEach(s => {
+    const b = bios[s.name];
+    L.push(`${s.name} — ${ord[s.rank-1] || (s.rank+'th')}, ${s.total} pts  ·  ${awards[s.name].title}`);
+    if (b.tag) L.push(`   ${b.tag}`);
+    L.push(`   ${b.numbersLine}`);
+    if (b.callLine) L.push(`   👍 ${b.callLine}`);
+    if (b.heartLine) L.push(`   💔 ${b.heartLine}`);
+    L.push(`   ${b.zinger}`);
+    L.push('');
+  });
+  return L.join('\n');
+}
+
+async function copyFinalRecap() {
+  const text = generateFinalRecapText();
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Tournament wrap-up copied to clipboard!');
+  } catch (e) {
+    alert("Couldn't auto-copy — try selecting the text manually.");
+  }
+}
+
 // ---- commissioner panels: recap + analytics ----
 function commissionerRecapPanel() {
   const recapText = generateRecapText();
@@ -1040,6 +1647,7 @@ function render() {
   let body;
   if (state.viewingEntryId) body = entryView();
   else if (state.view === 'leaderboard') body = leaderboardView();
+  else if (state.view === 'recap') body = recapView();
   else if (state.view === 'commissioner') body = commissionerView();
   else body = bracketView();
 
@@ -1060,6 +1668,7 @@ function header() {
       <nav class="tabs">
         ${tab('bracket', 'My Bracket')}
         ${tab('leaderboard', 'Leaderboard')}
+        ${tab('recap', '🏆 Recap')}
         ${tab('commissioner', 'Commissioner')}
       </nav>
     </header>`;
@@ -1435,6 +2044,7 @@ appEl.addEventListener('click', e => {
   else if (a === 'pick-different-name') { state.pendingName = null; state.pinError = null; render(); }
   else if (a === 'copy-recap') { copyRecap(); }
   else if (a === 'copy-tournament-recap') { copyTournamentRecap(); }
+  else if (a === 'copy-final-recap') { copyFinalRecap(); }
   else if (a === 'advance-recap') {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
   }
