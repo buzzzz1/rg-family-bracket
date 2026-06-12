@@ -307,22 +307,71 @@ pre.rules {
 .champ-card .called .who { font-weight: 600; }
 .champ-card .called.nobody { color: #b23b3b; font-weight: 600; }
 
-.numbers .explainer {
-  background: #fdf6ec; border-radius: 6px; padding: 10px 12px; font-size: 13px;
-  color: var(--ink); line-height: 1.55; margin: 8px 0 12px;
+.big-stat {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 12px 0 16px; margin-bottom: 4px; border-bottom: 1px dashed var(--line);
 }
-.numbers .explainer strong { color: var(--clay-dark); }
-.round-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.round-table th, .round-table td {
-  padding: 6px 8px; text-align: left; border-bottom: 1px dashed var(--line);
+.big-stat-num {
+  font-family: 'Young Serif', serif; font-size: 44px; line-height: 1;
+  color: var(--clay-dark); font-weight: 400;
 }
-.round-table th {
-  font-size: 11px; text-transform: uppercase; color: var(--muted);
-  font-weight: 600; letter-spacing: .5px;
+.big-stat-lbl {
+  font-size: 13px; color: var(--muted); line-height: 1.45; flex: 1; min-width: 180px;
 }
-.round-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.round-table tr.best { background: #eaf2eb; }
-.round-table tr.worst { background: #f7e4d8; }
+
+.best-worst {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0;
+}
+.bw-card {
+  border-radius: 8px; padding: 10px 12px; border: 1px solid var(--line);
+}
+.bw-card.good { background: #eaf2eb; border-color: #cfe1d2; }
+.bw-card.bad { background: #f7e4d8; border-color: #ebcab2; }
+.bw-card .bw-lbl {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); font-weight: 600;
+}
+.bw-card .bw-val { font-size: 17px; font-weight: 700; margin: 2px 0; }
+.bw-card .bw-sub { font-size: 12px; color: var(--muted); }
+
+.round-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px dashed var(--line); font-size: 13px;
+}
+.round-row:last-child { border-bottom: 0; }
+.round-row .rr-label {
+  width: 44px; font-weight: 600; color: var(--ink); flex-shrink: 0;
+}
+.round-row .rr-track {
+  display: block; flex: 1; height: 10px; min-width: 60px;
+  background: var(--line); border-radius: 999px; overflow: hidden;
+}
+.round-row .rr-fill { display: block; height: 100%; background: var(--court); }
+.round-row.good .rr-fill { background: var(--court); }
+.round-row.bad .rr-fill { background: #b23b3b; }
+.round-row .rr-pct {
+  width: 42px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.round-row .rr-count {
+  width: 60px; text-align: right; color: var(--muted); font-size: 12px;
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+
+.recap-details { font-size: 13px; }
+.recap-details summary {
+  cursor: pointer; color: var(--clay); font-weight: 600; padding: 4px 0;
+  list-style: none; user-select: none;
+}
+.recap-details summary::-webkit-details-marker { display: none; }
+.recap-details summary::before { content: "▸ "; }
+.recap-details[open] summary::before { content: "▾ "; }
+.recap-details summary:hover { color: var(--clay-dark); }
+.recap-details:not([open]) > .explainer-body { display: none; }
+.recap-details .explainer-body {
+  background: #fdf6ec; border-radius: 6px; padding: 10px 12px;
+  margin-top: 6px; color: var(--ink); line-height: 1.55;
+}
 
 .recap-subhead {
   font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
@@ -361,6 +410,21 @@ pre.rules {
 .uni-side.wrong .count { color: #b23b3b; }
 .uni-side ul { list-style: none; padding: 0; margin: 0; font-size: 12.5px; line-height: 1.5; }
 .uni-side li { padding: 3px 0; }
+.uni-details { margin-top: 8px; }
+.uni-details summary {
+  cursor: pointer; color: var(--clay); font-weight: 600; font-size: 12px;
+  padding: 4px 0; list-style: none; user-select: none;
+}
+.uni-details summary::-webkit-details-marker { display: none; }
+.uni-details summary::before { content: "▸ "; }
+.uni-details[open] summary::before { content: "▾ "; }
+.uni-details summary:hover { color: var(--clay-dark); }
+.uni-details:not([open]) > ul.uni-all { display: none; }
+.uni-details ul.uni-all {
+  font-size: 12px; line-height: 1.45;
+  max-height: 280px; overflow-y: auto;
+  padding: 6px 8px 6px 0; border-top: 1px dashed var(--line); margin-top: 4px;
+}
 
 .bio-card {
   background: var(--card); border: 1px solid var(--line);

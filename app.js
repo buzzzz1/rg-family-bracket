@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1456';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1456';
+import { DRAWS } from './draws.js?v=20260612-1513';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1513';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -868,7 +868,9 @@ function computeFinalRecap(entries) {
       if (ls === 99) continue;
       const gap = (ws === 99 ? 33 - ls : ws - ls);
       if (gap <= 0) continue;
-      const sc = gap * (r+1);
+      // Raw seed gap (no round multiplier) — an early shocker like unseeded
+      // over #1 in R64 ranks ahead of a smaller-gap upset in a later round.
+      const sc = gap;
       if (!bigUpset || sc > bigUpset.sc) bigUpset = { ev, r, m, winner: w, loser, gap, sc };
     }
   }
@@ -958,8 +960,7 @@ function computeFinalRecap(entries) {
     else if (a.title.includes('Maverick')) tag = `Made ${s.contrarian} correct calls the rest of the family didn't see — the most distinctive bracket in the pool.`;
     else tag = a.detail;
 
-    const eff = s.ceiling ? Math.round(s.total/s.ceiling*100) : null;
-    const numbersLine = `${s.total.toLocaleString()} pts on ${s.correctTotal}/${s.playedTotal} live predictions = ${(s.accuracy*100).toFixed(1)}% accuracy. Men's ${s.mCorr}/${s.mPlay} · Women's ${s.wCorr}/${s.wPlay}. Cashed ${eff != null ? eff+'%' : '—'} of the bracket's theoretical max (${s.ceiling.toLocaleString()} pts).`;
+    const numbersLine = `${s.total.toLocaleString()} pts on ${s.correctTotal}/${s.playedTotal} live predictions = ${(s.accuracy*100).toFixed(1)}% accuracy. Men's ${s.mCorr}/${s.mPlay} · Women's ${s.wCorr}/${s.wPlay}.`;
 
     let callLine = '';
     if (s.standout) {
@@ -1072,44 +1073,56 @@ function renderFinalRecapHTML(rc) {
   }
 
   // By the numbers
-  html += `<div class="panel numbers"><h2>📊 By The Numbers</h2>`;
-  html += `<div class="explainer">
-    Across all ${rc.N} brackets we made <strong>${famP.toLocaleString()}</strong> live predictions on matches that happened — and got <strong>${famC.toLocaleString()}</strong> right (<strong>${(famC/famP*100).toFixed(1)}%</strong> overall).
-    <br><br>
-    <strong>How "live" works:</strong> a pick only counts toward accuracy if the player you chose was actually in that match. If your R64 winner already lost in R128, your later picks for them are "dead" and don't count. That's why everyone's denominator is different — better brackets keep more picks alive deeper into the draw.
-  </div>`;
-
   const ranked = ROUND_SHORT.map((label, i) => ({ label, ...famByRound[i], acc: famByRound[i].p ? famByRound[i].c/famByRound[i].p : 0 })).filter(x => x.p);
   const bestR = ranked.slice().sort((a,b) => b.acc - a.acc)[0];
   const worstR = ranked.slice().sort((a,b) => a.acc - b.acc)[0];
-  html += `<table class="round-table"><thead><tr>
-    <th>Round</th><th class="num">Correct</th><th class="num">Played</th><th class="num">Hit rate</th>
-    </tr></thead><tbody>`;
-  ranked.forEach(rr => {
-    const cls = rr.label === bestR.label ? 'best' : (rr.label === worstR.label ? 'worst' : '');
-    html += `<tr class="${cls}">
-      <td>${rr.label}</td>
-      <td class="num">${rr.c}</td>
-      <td class="num">${rr.p}</td>
-      <td class="num"><strong>${(rr.acc*100).toFixed(0)}%</strong></td>
-    </tr>`;
-  });
-  html += `</tbody></table>`;
-  html += `<p class="small muted" style="margin: 8px 0 14px">Strongest as a family: <strong>${bestR.label}</strong> (${(bestR.acc*100).toFixed(0)}%) · Weakest: <strong>${worstR.label}</strong> (${(worstR.acc*100).toFixed(0)}%).</p>`;
+  html += `<div class="panel numbers"><h2>📊 By The Numbers</h2>`;
+  html += `<div class="big-stat">
+    <div class="big-stat-num">${(famC/famP*100).toFixed(1)}%</div>
+    <div class="big-stat-lbl">Family hit rate across ${famC.toLocaleString()} correct picks out of ${famP.toLocaleString()} live predictions</div>
+  </div>`;
 
-  html += `<h3 class="recap-subhead">Score vs theoretical max</h3>
-    <p class="small muted" style="margin: 0 0 10px">If every pick you made had won, regardless of outcome.</p>`;
-  stats.slice().sort((a,b) => b.total - a.total).forEach(s => {
-    const eff = s.ceiling ? (s.total/s.ceiling*100) : 0;
-    html += `<div class="ceiling-bar">
-      <span class="name">${esc(s.name)}</span>
-      <span class="track"><span class="fill" style="width: ${eff}%"></span></span>
-      <span class="pct">${s.total.toLocaleString()} / ${s.ceiling.toLocaleString()} (${eff.toFixed(0)}%)</span>
+  html += `<div class="best-worst">
+    <div class="bw-card good">
+      <div class="bw-lbl">Strongest round</div>
+      <div class="bw-val">${bestR.label} · ${(bestR.acc*100).toFixed(0)}%</div>
+      <div class="bw-sub">${bestR.c} of ${bestR.p}</div>
+    </div>
+    <div class="bw-card bad">
+      <div class="bw-lbl">Weakest round</div>
+      <div class="bw-val">${worstR.label} · ${(worstR.acc*100).toFixed(0)}%</div>
+      <div class="bw-sub">${worstR.c} of ${worstR.p}</div>
+    </div>
+  </div>`;
+
+  html += `<h3 class="recap-subhead">Hit rate by round</h3>`;
+  ranked.forEach(rr => {
+    const pct = rr.acc * 100;
+    const flavor = rr.label === bestR.label ? 'good' : (rr.label === worstR.label ? 'bad' : '');
+    html += `<div class="round-row ${flavor}">
+      <span class="rr-label">${rr.label}</span>
+      <span class="rr-track"><span class="rr-fill" style="width: ${pct}%"></span></span>
+      <span class="rr-pct">${pct.toFixed(0)}%</span>
+      <span class="rr-count">${rr.c}/${rr.p}</span>
     </div>`;
   });
 
-  html += `<h3 class="recap-subhead">Seeds at the QF (chalkiness check)</h3>
-    <p class="small" style="margin: 0">Men's: <strong>${seedM.seededIn}/8</strong> quarterfinalists were seeded · Women's: <strong>${seedW.seededIn}/8</strong> quarterfinalists were seeded</p>`;
+  html += `<h3 class="recap-subhead">Tournament profile</h3>
+    <p class="small" style="margin: 0">
+      Chalkiness: <strong>${seedM.seededIn}/8</strong> men's quarterfinalists were seeded ·
+      <strong>${seedW.seededIn}/8</strong> women's quarterfinalists were seeded.
+    </p>`;
+
+  html += `<details class="recap-details" style="margin-top: 14px">
+    <summary>What's a "live prediction"?</summary>
+    <div class="explainer-body">
+      A pick only counts toward accuracy if the player you chose was actually in
+      that match. If your R64 winner already lost in R128, your later picks for
+      them are "dead" and don't count. That's why everyone's denominator is
+      different — better brackets keep more picks alive deeper into the draw.
+    </div>
+  </details>`;
+
   html += `</div>`;
 
   // Moments
@@ -1135,26 +1148,35 @@ function renderFinalRecapHTML(rc) {
   if (sabaCost) html += `<li><span class="moment-key">${esc(sabaCost.name)}'s ${ROUND_SHORT[sabaCost.exitR]} exit</span> cost the field ${sabaCost.lost.toLocaleString()} combined max pts.</li>`;
   html += `</ul></div>`;
 
-  // Unanimous
+  // Unanimous (latest rounds first; expandable "show all")
+  const uniRightLi = (t) => {
+    const d = DRAWS[t.ev];
+    return `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: ${esc(recapName(d, t.winner))} d. ${esc(recapName(d, t.loser))}</li>`;
+  };
+  const uniWrongLi = (t) => {
+    const d = DRAWS[t.ev];
+    return `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: had ${esc(recapName(d, t.pick))} — actually ${esc(recapName(d, t.winner))}</li>`;
+  };
   html += `<div class="panel"><h2>🤝 Unanimous Picks</h2><div class="unanimous-grid">`;
   html += `<div class="uni-side right">
     <h3>We were ALL right</h3>
     <div class="count">${uniCorr.length}</div>
-    <ul>`;
-  uniCorr.slice(0, 5).forEach(t => {
-    const d = DRAWS[t.ev];
-    html += `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: ${esc(recapName(d, t.winner))} d. ${esc(recapName(d, t.loser))}</li>`;
-  });
-  html += `</ul></div>`;
+    <ul>${uniCorr.slice(0, 5).map(uniRightLi).join('')}</ul>
+    ${uniCorr.length > 5 ? `<details class="uni-details">
+      <summary>Show all ${uniCorr.length}</summary>
+      <ul class="uni-all">${uniCorr.map(uniRightLi).join('')}</ul>
+    </details>` : ''}
+  </div>`;
   html += `<div class="uni-side wrong">
     <h3>We were ALL wrong</h3>
     <div class="count">${uniWrong.length}</div>
-    <ul>`;
-  uniWrong.slice(0, 5).forEach(t => {
-    const d = DRAWS[t.ev];
-    html += `<li>${t.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[t.r]}: had ${esc(recapName(d, t.pick))} — actually ${esc(recapName(d, t.winner))}</li>`;
-  });
-  html += `</ul></div></div></div>`;
+    <ul>${uniWrong.slice(0, 5).map(uniWrongLi).join('')}</ul>
+    ${uniWrong.length > 5 ? `<details class="uni-details">
+      <summary>Show all ${uniWrong.length}</summary>
+      <ul class="uni-all">${uniWrong.map(uniWrongLi).join('')}</ul>
+    </details>` : ''}
+  </div>`;
+  html += `</div></div>`;
 
   // The People — bios with award embedded
   html += `<div class="panel"><h2>✨ The People</h2>`;
@@ -1210,29 +1232,23 @@ function generateFinalRecapText() {
   if (champions.women) L.push(`   Women's: ${champions.women.name} — called by ${champions.women.callers.length ? champions.women.callers.join(', ') : 'NOBODY 😬'}`);
   L.push('');
   L.push('📊 BY THE NUMBERS');
-  L.push(`   Across all ${rc.N} brackets we made ${famP} live predictions on matches that happened.`);
-  L.push(`   We got ${famC} right — a ${(famC/famP*100).toFixed(1)}% overall hit rate.`);
-  L.push('');
-  L.push(`   How "live" works: only matches where the player you chose was actually in the`);
-  L.push(`   match count toward accuracy. Once your pick gets knocked out, downstream picks`);
-  L.push(`   for them become "dead" and don't count — different brackets keep different`);
-  L.push(`   picks alive, which is why everyone's denominator is different.`);
-  L.push('');
-  L.push('   Hit rate by round:');
-  ROUND_SHORT.forEach((r, i) => { const b = famByRound[i]; if (b.p) L.push(`     ${r.padEnd(6)} ${(''+b.c).padStart(3)}/${(''+b.p).padEnd(3)}  ${(b.c/b.p*100).toFixed(0).padStart(3)}%`); });
+  L.push(`   Family hit rate: ${famC}/${famP} live predictions = ${(famC/famP*100).toFixed(1)}%`);
   const rankedR = ROUND_SHORT.map((r,i) => ({r,...famByRound[i],acc:famByRound[i].p?famByRound[i].c/famByRound[i].p:0})).filter(x=>x.p);
   const bestRR = rankedR.slice().sort((a,b)=>b.acc-a.acc)[0];
   const worstRR = rankedR.slice().sort((a,b)=>a.acc-b.acc)[0];
-  L.push(`   Strongest: ${bestRR.r} (${(bestRR.acc*100).toFixed(0)}%) · Weakest: ${worstRR.r} (${(worstRR.acc*100).toFixed(0)}%)`);
+  L.push(`   Strongest round: ${bestRR.r} (${(bestRR.acc*100).toFixed(0)}% — ${bestRR.c}/${bestRR.p})`);
+  L.push(`   Weakest round:   ${worstRR.r} (${(worstRR.acc*100).toFixed(0)}% — ${worstRR.c}/${worstRR.p})`);
   L.push('');
-  L.push(`   Score vs theoretical max:`);
-  stats.slice().sort((a,b)=>b.total-a.total).forEach(s => {
-    const eff = s.ceiling ? (s.total/s.ceiling*100).toFixed(0) : '—';
-    L.push(`     ${s.name.padEnd(8)} ${(''+s.total).padStart(4)} / ${(''+s.ceiling).padStart(4)}  =  ${eff}% cashed`);
-  });
+  L.push('   Hit rate by round:');
+  ROUND_SHORT.forEach((r, i) => { const b = famByRound[i]; if (b.p) L.push(`     ${r.padEnd(6)} ${(''+b.c).padStart(3)}/${(''+b.p).padEnd(3)}  ${(b.c/b.p*100).toFixed(0).padStart(3)}%`); });
   L.push('');
-  L.push(`   Seeds at the QF (chalkiness check):`);
-  L.push(`     Men's: ${seedM.seededIn}/8 · Women's: ${seedW.seededIn}/8`);
+  L.push(`   Tournament profile (chalkiness):`);
+  L.push(`     Men's QF:   ${seedM.seededIn}/8 quarterfinalists were seeded`);
+  L.push(`     Women's QF: ${seedW.seededIn}/8 quarterfinalists were seeded`);
+  L.push('');
+  L.push(`   ("Live" predictions = matches where the player you picked was actually in`);
+  L.push(`   the match. Once your pick is knocked out, downstream picks for them become`);
+  L.push(`   "dead" and don't count.)`);
   L.push('');
   L.push('🎲 MOMENTS OF THE TOURNAMENT');
   if (bigUpset) { const d = DRAWS[bigUpset.ev]; L.push(`   Biggest upset: ${bigUpset.ev==='men'?'M':'W'} ${ROUND_SHORT[bigUpset.r]} — ${recapName(d, bigUpset.winner)} d. ${recapName(d, bigUpset.loser)}`); }
