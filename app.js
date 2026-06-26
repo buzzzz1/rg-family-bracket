@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-1830';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1830';
+import { DRAWS } from './draws.js?v=20260626-2300';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-2300';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1533,9 +1533,36 @@ function flagImg(draw, slot) {
     `alt="${cc.toUpperCase()}" loading="lazy" decoding="async">`;
 }
 
+// Projection "strength" of a draw slot: lower = stronger. Seeds rank ahead of
+// everyone (by seed number); unseeded players are ordered by current ranking.
+function slotStrength(p) {
+  if (!p) return 1e9;
+  return p.seed != null ? p.seed : 1000 + (typeof p.rank === 'number' ? p.rank : 9999);
+}
+
+// The projected path "to the title" for a player: the opponent they'd be
+// expected to meet in each round (R128 → Final) if the stronger seed/ranking
+// wins every match. Returns 7 opponent slot indices.
+function projectedPath(ev, slot) {
+  const draw = DRAWS[ev];
+  const path = [];
+  for (let r = 0; r < 7; r++) {
+    const blockSize = 1 << r;                                  // R128 slots per sub-bracket this round
+    const sibStart = ((Math.floor(slot / blockSize)) ^ 1) * blockSize; // the opposing sub-bracket
+    let best = sibStart, bestStr = slotStrength(draw[sibStart]);
+    for (let i = sibStart + 1; i < sibStart + blockSize; i++) {
+      const s = slotStrength(draw[i]);
+      if (s < bestStr) { bestStr = s; best = i; }
+    }
+    path.push(best);
+  }
+  return path;
+}
+
 // Player info card shown when the ⓘ next to a player is tapped. Reads the extra
-// fields (currentRank / careerHigh / dob) from the draw; any that are missing
-// show as "—". Men are ranked on the ATP tour, women on the WTA tour.
+// fields (rank / high / dob / titles / slam bests) from the draw; any that are
+// missing show as "—". Men are on the ATP tour, women on the WTA tour. The
+// projected path is computed live from the draw seeding.
 function playerModalHTML() {
   if (!state.playerModal) return '';
   const { ev, slot } = state.playerModal;
@@ -1547,6 +1574,7 @@ function playerModalHTML() {
   const cc = (p.country || '').toLowerCase();
   const fmtRank = (v) => (typeof v === 'number' ? `#${v}` : '—');
   const row = (lbl, val) => `<div class="pm-row"><span class="pm-lbl">${lbl}</span><span class="pm-val">${val}</span></div>`;
+  const slamRow = (lbl, v) => `<div class="pm-srow"><span class="pm-slbl">${lbl}</span><span class="pm-sval">${v ? esc(v) : '—'}</span></div>`;
   return `<div class="pm-backdrop" data-action="close-player">
     <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
       <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
@@ -1561,6 +1589,22 @@ function playerModalHTML() {
       ${row('Age', age != null ? age : '—')}
       ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
       ${row(`Career-high ${tour} ranking`, fmtRank(p.high))}
+      ${row(`${tour} singles titles`, typeof p.titles === 'number' ? p.titles : '—')}
+
+      <div class="pm-sub">Best at the Slams</div>
+      <div class="pm-slams">
+        ${slamRow('Australian Open', p.ao)}
+        ${slamRow('French Open', p.rg)}
+        ${slamRow('Wimbledon', p.wim)}
+        ${slamRow('US Open', p.uso)}
+      </div>
+
+      <div class="pm-sub">Projected path to the title <span class="pm-note2">(if the seeds hold)</span></div>
+      <ol class="pm-path">
+        ${projectedPath(ev, slot).map((opp, r) =>
+          `<li><span class="pm-pr">${ROUND_SHORT[r]}</span>${flagImg(draw, opp)}<span class="pm-pname">${esc(label(draw, opp))}</span></li>`
+        ).join('')}
+      </ol>
     </div>
   </div>`;
 }
@@ -2022,9 +2066,9 @@ function commissionerView() {
 function welcomeScreen() {
   const hero = `
     <div class="welcome-hero">
-      <img class="hero-logo" src="logo.png" alt="Wimbledon 2026"
+      <img class="hero-logo" src="logo.png?v=20260626-2000" alt="Wimbledon 2026"
         onerror="rgLogoFallback(this)" />
-      <h1 class="title">Kiwi House Family Bracket Challenge</h1>
+      <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
       <div class="subtitle">Wimbledon 2026</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
     </div>`;

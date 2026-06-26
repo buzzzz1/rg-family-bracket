@@ -57,7 +57,7 @@ header.app-head {
   border-bottom: 2px solid var(--line);
   margin-bottom: 14px;
 }
-.brand { display: flex; flex-direction: column; gap: 4px; }
+.brand { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
 .brand h1.title {
   font-family: 'Manrope', system-ui, sans-serif;
   font-size: 24px; line-height: 1.15; margin: 0;
@@ -68,7 +68,7 @@ header.app-head {
   color: var(--court); font-weight: 400; font-size: 20px;
   letter-spacing: .2px;
 }
-.whoami { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.whoami { font-size: 13px; color: var(--muted); margin-top: 2px; text-align: center; }
 .whoami a { color: var(--clay); cursor: pointer; }
 
 nav.tabs { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
@@ -130,15 +130,16 @@ button { font-family: inherit; }
 /* ---- matches ---- */
 .matches { display: flex; flex-direction: column; gap: 8px; }
 .match {
-  display: grid; grid-template-columns: 26px 1fr 22px 1fr; align-items: center;
+  display: grid; grid-template-columns: 26px 1fr 22px 1fr; align-items: stretch;
   gap: 6px;
 }
 .match .mno { font-size: 11px; color: var(--muted); text-align: center; }
-.match .vs { font-size: 11px; color: var(--muted); text-align: center; }
+.match .vs { font-size: 11px; color: var(--muted); text-align: center; align-self: center; }
 .opt {
-  padding: 11px 10px; border: 1px solid var(--line); background: var(--card);
+  display: flex; align-items: center;
+  padding: 8px 10px; border: 1px solid var(--line); background: var(--card);
   border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--ink);
-  text-align: left; min-height: 42px; line-height: 1.2;
+  text-align: left; min-height: 56px; line-height: 1.2;
 }
 .opt:disabled { cursor: default; color: var(--muted); background: #faf6ef; }
 .opt.picked { background: var(--clay); color: #fff; border-color: var(--clay); font-weight: 600; }
@@ -149,12 +150,18 @@ button { font-family: inherit; }
 
 /* ---- country flags ---- */
 .flag {
-  display: inline-block; vertical-align: middle;
+  display: inline-block; vertical-align: middle; flex: 0 0 auto;
   width: 20px; height: 15px; margin-right: 7px;
   border-radius: 2px; object-fit: cover;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .12);
 }
-.opt-name { vertical-align: middle; }
+/* Clamp player names to 2 lines so every option button is the same height
+   (one-line and wrapped names both fit inside .opt's fixed min-height). */
+.opt-name {
+  vertical-align: middle; flex: 1 1 auto; min-width: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-clamp: 2; overflow: hidden;
+}
 .champion-box .flag {
   width: 26px; height: 20px; margin-right: 8px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, .45);
@@ -162,7 +169,7 @@ button { font-family: inherit; }
 .champion-box .name.clickable { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---- player info: ⓘ button + card ---- */
-.optwrap { position: relative; }
+.optwrap { position: relative; display: flex; }
 .optwrap .opt { width: 100%; padding-right: 30px; }
 .info-dot {
   position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
@@ -183,6 +190,7 @@ button { font-family: inherit; }
   position: relative; width: 100%; max-width: 340px; padding: 20px;
   background: var(--card); border-radius: 14px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, .3);
+  max-height: 86vh; overflow-y: auto;
 }
 .pm-close {
   position: absolute; top: 8px; right: 10px; padding: 4px;
@@ -203,6 +211,30 @@ button { font-family: inherit; }
 }
 .pm-lbl { color: var(--muted); }
 .pm-val { font-weight: 700; color: var(--ink); text-align: right; }
+
+.pm-sub {
+  margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: var(--clay-dark);
+  text-transform: uppercase; letter-spacing: .6px;
+}
+.pm-note2 { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.pm-slams { display: flex; flex-direction: column; }
+.pm-srow {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px;
+}
+.pm-slbl { color: var(--muted); }
+.pm-sval { font-weight: 700; color: var(--ink); }
+.pm-path { list-style: none; margin: 4px 0 0; padding: 0; }
+.pm-path li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px;
+}
+.pm-path .flag { margin: 0; }
+.pm-pr {
+  flex: 0 0 42px; font-size: 11px; font-weight: 700; color: var(--clay);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.pm-pname { color: var(--ink); }
 
 .champion-box {
   margin-top: 16px; padding: 14px; border-radius: 10px;
