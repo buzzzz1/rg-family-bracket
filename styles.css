@@ -112,6 +112,15 @@ button { font-family: inherit; }
 .rounds button .chk { color: var(--court); font-weight: 700; }
 .rounds button.active .chk { color: #bfe6c6; }
 
+/* Swipe hint — only shown on touch devices (where the gesture works) */
+.swipe-hint { display: none; }
+@media (pointer: coarse) {
+  .swipe-hint {
+    display: block; text-align: center; font-size: 11px; color: var(--muted);
+    letter-spacing: .5px; margin: -2px 0 6px;
+  }
+}
+
 /* ---- progress ---- */
 .progress-wrap { margin: 6px 0 14px; }
 .progress-bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }

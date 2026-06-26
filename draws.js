@@ -87,7 +87,7 @@ export const DRAWS = {
     { name: 'M. Navone', seed: null, country: 'ar', rank: 38, high: 29, dob: '2001-02-27' },
     { name: 'F. Cobolli', seed: 9, country: 'it', rank: 10, high: 10, dob: '2002-05-06' },
     { name: 'J. Mensik', seed: 15, country: 'cz', rank: 17, high: 12, dob: '2005-09-01' },
-    { name: 'T. Samuel', seed: null, country: 'au', rank: 126, high: 126, dob: '2001-02-12' },
+    { name: 'T. Samuel', seed: null, country: 'gb', rank: 142, high: 142, dob: '2002-09-06' },
     { name: 'D. Sweeny', seed: null, country: 'au', rank: 126, high: 126, dob: '2001-02-12' },
     { name: 'G. Dimitrov', seed: null, country: 'bg', rank: 164, high: 3, dob: '1991-05-16' },
     { name: 'S. Wawrinka', seed: null, country: 'ch', rank: 125, high: 3, dob: '1985-03-28' },

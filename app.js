@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-1700';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1700';
+import { DRAWS } from './draws.js?v=20260626-1830';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1830';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1790,7 +1790,8 @@ function roundSeg(picks) {
   return `<div class="rounds">${ROUND_SHORT.map((s, r) => {
     const done = picks['r' + r].every(v => v !== null);
     return `<button class="${state.round === r ? 'active' : ''}" data-action="round" data-round="${r}">${s}${done ? ' <span class="chk">✓</span>' : ''}</button>`;
-  }).join('')}</div>`;
+  }).join('')}</div>
+  <div class="swipe-hint">‹ swipe to change round ›</div>`;
 }
 
 // ---- a single match's two option buttons ----
@@ -2165,6 +2166,28 @@ appEl.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && state.playerModal) { state.playerModal = null; render(); }
 });
+
+// Swipe left/right to move the draw forward/back a round. Only active where the
+// round navigation is on screen (bracket / entry / commissioner results), and
+// ignored while a player card is open. A swipe must be clearly horizontal so it
+// doesn't hijack vertical scrolling.
+let swipeStart = null;
+appEl.addEventListener('touchstart', e => {
+  swipeStart = e.touches.length === 1
+    ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+}, { passive: true });
+appEl.addEventListener('touchend', e => {
+  const s = swipeStart; swipeStart = null;
+  if (!s || state.playerModal) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - s.x, dy = t.clientY - s.y;
+  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.8) return; // not a clean horizontal swipe
+  if (!appEl.querySelector('.rounds')) return;                        // no round nav in this view
+  const next = state.round + (dx < 0 ? 1 : -1);                       // swipe left = forward
+  if (next < 0 || next > 6) return;
+  state.round = next;
+  render();
+}, { passive: true });
 
 appEl.addEventListener('submit', e => {
   e.preventDefault();
