@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260612-1633';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1633';
+import { DRAWS } from './draws.js?v=20260626-2300';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-2300';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,6 +23,11 @@ const PLAYERS = ['Chloe', 'Claire', 'Adrian', 'Chris', 'Mom', 'Michael', 'Andrew
 
 const NEEDS_SETUP = !firebaseConfig || !firebaseConfig.apiKey ||
   /PASTE_|YOUR_/.test(firebaseConfig.apiKey);
+
+// This is the read-only ARCHIVE of a finished tournament. No name or PIN is
+// required: visitors land on the recap and can browse the leaderboard and
+// every player's bracket. (The live tournament site sets this to false.)
+const SPECTATOR = true;
 
 // ---------------------------------------------------------------------------
 // State
@@ -1728,6 +1733,23 @@ function render() {
   if (NEEDS_SETUP) { appEl.innerHTML = setupScreen(); return; }
   if (state.error) { appEl.innerHTML = errorScreen(state.error); return; }
   if (!state.ready) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Connecting…</div>'; return; }
+
+  // Read-only archive: no identity needed. Land on the recap and let visitors
+  // browse the leaderboard and every player's bracket.
+  if (SPECTATOR) {
+    // Default to the recap; keep the tab highlight in sync.
+    if (!state.viewingEntryId && state.view !== 'leaderboard' && state.view !== 'brackets') {
+      state.view = 'recap';
+    }
+    let body;
+    if (state.viewingEntryId) body = entryView();
+    else if (state.view === 'leaderboard') body = leaderboardView();
+    else if (state.view === 'brackets') body = bracketsView();
+    else body = recapView();
+    appEl.innerHTML = header() + body + footer();
+    return;
+  }
+
   if (!state.userId) { appEl.innerHTML = welcomeScreen(); return; }
   if (!state.myPicks) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Loading your bracket…</div>'; return; }
 
@@ -1744,6 +1766,21 @@ function render() {
 function header() {
   const tab = (v, lbl) =>
     `<button class="${state.view === v && !state.viewingEntryId ? 'active' : ''}" data-action="nav" data-view="${v}">${lbl}</button>`;
+  if (SPECTATOR) {
+    return `
+    <header class="app-head">
+      <div class="brand">
+        <h1 class="title">Kiwi House Family Bracket Challenge</h1>
+        <div class="subtitle">Roland Garros 2026</div>
+      </div>
+      <div class="whoami">Final results &amp; standings — tap a name to view their bracket</div>
+      <nav class="tabs">
+        ${tab('recap', '🏆 Recap')}
+        ${tab('leaderboard', 'Leaderboard')}
+        ${tab('brackets', 'Brackets')}
+      </nav>
+    </header>`;
+  }
   return `
     <header class="app-head">
       <div class="brand">
@@ -1759,6 +1796,28 @@ function header() {
         ${tab('commissioner', 'Commissioner')}
       </nav>
     </header>`;
+}
+
+// ---- read-only list of everyone's brackets (archive spectator mode) ----
+function bracketsView() {
+  const entries = Object.values(state.entries).filter(e => e.name).map(e => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    const total = score(mp, state.results.men).total + score(wp, state.results.women).total;
+    return { id: e.id, name: e.name, total };
+  }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+  let html = `<div class="panel"><h2>Brackets</h2>`;
+  if (!entries.length) { html += `<p class="muted">No brackets to show.</p></div>`; return html; }
+  html += `<p class="small muted">Tap a name to view that person's full bracket, round by round.</p>`;
+  html += `<div class="bracket-list">`;
+  entries.forEach(e => {
+    html += `<button class="entry-row" data-action="view-entry" data-id="${e.id}">
+      <span class="er-name">${esc(e.name)}</span>
+      <span class="er-pts">${e.total.toLocaleString()} pts →</span>
+    </button>`;
+  });
+  html += `</div></div>`;
+  return html;
 }
 
 function footer() {
@@ -1892,7 +1951,7 @@ function leaderboardView() {
     </tr></thead><tbody>`;
   rows.forEach((r, i) => {
     const me = r.id === state.userId;
-    const canOpen = locked || me;
+    const canOpen = SPECTATOR || locked || me;
     html += `<tr class="${me ? 'me ' : ''}${canOpen ? 'clickable' : ''}"
       ${canOpen ? `data-action="view-entry" data-id="${r.id}"` : ''}>
       <td class="rank">${i === 0 && r.total > 0 ? '<span class="leader-crown">♛</span>' : (i + 1)}</td>
@@ -1902,7 +1961,7 @@ function leaderboardView() {
     </tr>`;
   });
   html += `</tbody></table>`;
-  html += locked
+  html += (SPECTATOR || locked)
     ? `<p class="small muted">Tap a row to view that bracket.</p>`
     : `<p class="small muted">Other players' picks stay hidden until brackets lock.</p>`;
   html += `</div>`;
@@ -1920,7 +1979,7 @@ function entryView() {
   const sw = score(picks.women, state.results.women);
 
   let html = `<div class="panel"><h2>${esc(e.name || 'Bracket')}</h2>`;
-  html += `<button class="btn ghost" data-action="back">← Leaderboard</button>`;
+  html += `<button class="btn ghost" data-action="back">← Back</button>`;
   if (showResults) {
     html += `<div class="banner score" style="margin-top:10px">Men ${sm.total} · Women ${sw.total} · Total ${sm.total + sw.total}</div>`;
   }
