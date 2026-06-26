@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-1530';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1530';
+import { DRAWS } from './draws.js?v=20260626-1700';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1700';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -32,6 +32,34 @@ const PLAYERS = ['Chloe', 'Claire', 'Adrian', 'Chris', 'Mom', 'Michael', 'Andrew
 const NEEDS_SETUP = !firebaseConfig || !firebaseConfig.apiKey ||
   /PASTE_|YOUR_/.test(firebaseConfig.apiKey);
 
+// ISO 3166-1 alpha-2 → display name, for the codes used in the draws.
+const COUNTRY_NAMES = {
+  ad: 'Andorra', ar: 'Argentina', at: 'Austria', au: 'Australia', ba: 'Bosnia & Herzegovina',
+  be: 'Belgium', bg: 'Bulgaria', br: 'Brazil', by: 'Belarus', ca: 'Canada', ch: 'Switzerland',
+  cl: 'Chile', cn: 'China', co: 'Colombia', cz: 'Czechia', de: 'Germany', dk: 'Denmark',
+  es: 'Spain', fi: 'Finland', fr: 'France', gb: 'Great Britain', ge: 'Georgia', gr: 'Greece',
+  hr: 'Croatia', hu: 'Hungary', id: 'Indonesia', it: 'Italy', jp: 'Japan', kr: 'South Korea',
+  kz: 'Kazakhstan', lt: 'Lithuania', lv: 'Latvia', mk: 'North Macedonia', mx: 'Mexico',
+  nl: 'Netherlands', no: 'Norway', pe: 'Peru', ph: 'Philippines', pl: 'Poland', pt: 'Portugal',
+  py: 'Paraguay', ro: 'Romania', rs: 'Serbia', ru: 'Russia', si: 'Slovenia', sk: 'Slovakia',
+  th: 'Thailand', tr: 'Turkey', ua: 'Ukraine', us: 'United States', uz: 'Uzbekistan',
+};
+function countryName(cc) {
+  cc = (cc || '').toLowerCase();
+  return COUNTRY_NAMES[cc] || (cc ? cc.toUpperCase() : '');
+}
+// Age in whole years from a 'YYYY-MM-DD' date of birth, or null if unknown.
+function ageFromDob(dob) {
+  if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
+  const b = new Date(dob + 'T00:00:00');
+  if (isNaN(b)) return null;
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+  return age;
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -52,6 +80,7 @@ const state = {
   config: { locked: false },
   commish: false,
   viewingEntryId: null,
+  playerModal: null,        // { ev, slot } when a player info card is open
   ready: false,
 };
 
@@ -1504,6 +1533,38 @@ function flagImg(draw, slot) {
     `alt="${cc.toUpperCase()}" loading="lazy" decoding="async">`;
 }
 
+// Player info card shown when the ⓘ next to a player is tapped. Reads the extra
+// fields (currentRank / careerHigh / dob) from the draw; any that are missing
+// show as "—". Men are ranked on the ATP tour, women on the WTA tour.
+function playerModalHTML() {
+  if (!state.playerModal) return '';
+  const { ev, slot } = state.playerModal;
+  const draw = DRAWS[ev];
+  const p = draw && draw[slot];
+  if (!p) return '';
+  const tour = ev === 'men' ? 'ATP' : 'WTA';
+  const age = ageFromDob(p.dob);
+  const cc = (p.country || '').toLowerCase();
+  const fmtRank = (v) => (typeof v === 'number' ? `#${v}` : '—');
+  const row = (lbl, val) => `<div class="pm-row"><span class="pm-lbl">${lbl}</span><span class="pm-val">${val}</span></div>`;
+  return `<div class="pm-backdrop" data-action="close-player">
+    <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
+      <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
+      <div class="pm-head">
+        ${flagImg(draw, slot)}
+        <div>
+          <div class="pm-name">${esc(p.name)}</div>
+          ${p.seed ? `<div class="pm-seed">Seed ${p.seed}</div>` : `<div class="pm-seed unseeded">Unseeded</div>`}
+        </div>
+      </div>
+      ${row('Country', esc(countryName(cc)) || '—')}
+      ${row('Age', age != null ? age : '—')}
+      ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
+      ${row(`Career-high ${tour} ranking`, fmtRank(p.high))}
+    </div>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // Firebase
 // ---------------------------------------------------------------------------
@@ -1691,7 +1752,7 @@ function render() {
   else if (state.view === 'commissioner') body = commissionerView();
   else body = bracketView();
 
-  appEl.innerHTML = header() + body + footer();
+  appEl.innerHTML = header() + body + footer() + playerModalHTML();
 }
 
 function header() {
@@ -1733,9 +1794,13 @@ function roundSeg(picks) {
 }
 
 // ---- a single match's two option buttons ----
-function optBtn(draw, slot, r, m, picked, action, results) {
+// `event` is the draw key ('men'/'women') so the ⓘ info button can open the
+// right player. The ⓘ is a SEPARATE button (sibling of the pick button) so it
+// still works when the pick button is disabled (locked / results view).
+function optBtn(draw, slot, r, m, picked, action, results, event) {
   const isPicked = picked !== null && picked === slot;
-  const disabled = slot === null || slot === undefined || !action;
+  const hasPlayer = slot !== null && slot !== undefined;
+  const disabled = !hasPlayer || !action;
   let cls = 'opt';
   if (isPicked) cls += ' picked';
   if (results && isPicked) {
@@ -1744,9 +1809,13 @@ function optBtn(draw, slot, r, m, picked, action, results) {
       cls = 'opt ' + (picked === res ? 'correct' : 'wrong');
     }
   }
-  return `<button class="${cls}" ${disabled ? 'disabled' : ''}`
+  const btn = `<button class="${cls}" ${disabled ? 'disabled' : ''}`
     + (action ? ` data-action="${action}" data-r="${r}" data-m="${m}" data-slot="${slot}"` : '')
     + `>${flagImg(draw, slot)}<span class="opt-name">${esc(label(draw, slot))}</span></button>`;
+  const info = hasPlayer
+    ? `<button class="info-dot" data-action="info" data-ev="${event}" data-slot="${slot}" aria-label="Player info" title="Player info">i</button>`
+    : '';
+  return `<div class="optwrap">${btn}${info}</div>`;
 }
 
 // ---- the match list for one round ----
@@ -1757,9 +1826,9 @@ function matchList(picks, event, r, action, results) {
     const c = contenders(picks, r, m);
     const picked = picks['r' + r][m];
     html += `<div class="match"><span class="mno">${m + 1}</span>`
-      + optBtn(draw, c[0], r, m, picked, action, results)
+      + optBtn(draw, c[0], r, m, picked, action, results, event)
       + `<span class="vs">v</span>`
-      + optBtn(draw, c[1], r, m, picked, action, results)
+      + optBtn(draw, c[1], r, m, picked, action, results, event)
       + `</div>`;
   }
   return html + '</div>';
@@ -1808,7 +1877,7 @@ function bracketView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Your champion pick</div>
-      <div class="name">${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
+      <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${state.event}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
   }
   html += '</div>';
   return html;
@@ -1883,7 +1952,7 @@ function entryView() {
   html += matchList(picks[ev], ev, state.round, null, showResults ? state.results[ev] : null);
   const champ = picks[ev].r6[0];
   html += `<div class="champion-box"><div class="lbl">Champion pick</div>
-    <div class="name">${champ !== null ? flagImg(DRAWS[ev], champ) + esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
+    <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${ev}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[ev], champ) + esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
   html += `</div>`;
   return html;
 }
@@ -1937,7 +2006,7 @@ function commissionerView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Champion</div>
-      <div class="name">${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
+      <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${state.event}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
   }
   html += `</div>`;
 
@@ -2077,6 +2146,9 @@ appEl.addEventListener('click', e => {
   else if (a === 'round') { state.round = +el.dataset.round; render(); }
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
   else if (a === 'result') { doResult(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
+  else if (a === 'info') { state.playerModal = { ev: el.dataset.ev, slot: +el.dataset.slot }; render(); }
+  else if (a === 'close-player') { state.playerModal = null; render(); }
+  else if (a === 'pm-stop') { /* click inside the card — keep it open */ }
   else if (a === 'view-entry') { state.viewingEntryId = el.dataset.id; state.round = 0; render(); }
   else if (a === 'back') { state.viewingEntryId = null; render(); }
   else if (a === 'toggle-lock') { setLocked(!state.config.locked); }
@@ -2088,6 +2160,10 @@ appEl.addEventListener('click', e => {
   else if (a === 'advance-recap') {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
   }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.playerModal) { state.playerModal = null; render(); }
 });
 
 appEl.addEventListener('submit', e => {
