@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-2000';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-2000';
+import { DRAWS } from './draws.js?v=20260626-2100';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-2100';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -2024,7 +2024,7 @@ function welcomeScreen() {
     <div class="welcome-hero">
       <img class="hero-logo" src="logo.png?v=20260626-2000" alt="Wimbledon 2026"
         onerror="rgLogoFallback(this)" />
-      <h1 class="title">Kiwi House Family Bracket Challenge</h1>
+      <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
       <div class="subtitle">Wimbledon 2026</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
     </div>`;
