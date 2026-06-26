@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-1300';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1300';
+import { DRAWS } from './draws.js?v=20260626-1530';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1530';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1490,6 +1490,20 @@ function label(draw, slot) {
   return p.seed ? `${p.name} (${p.seed})` : p.name;
 }
 
+// Small country flag for a player slot. Returns safe HTML (an <img> from the
+// flagcdn CDN, which renders consistently across devices) or '' when the slot
+// has no known country. The ISO code comes from our own draws data, but we
+// still whitelist it to [a-z]{2} so this is always safe to insert unescaped.
+function flagImg(draw, slot) {
+  if (slot === null || slot === undefined) return '';
+  const p = draw[slot];
+  const cc = p && typeof p.country === 'string' ? p.country.toLowerCase() : '';
+  if (!/^[a-z]{2}$/.test(cc)) return '';
+  return `<img class="flag" src="https://flagcdn.com/20x15/${cc}.png" ` +
+    `srcset="https://flagcdn.com/40x30/${cc}.png 2x" width="20" height="15" ` +
+    `alt="${cc.toUpperCase()}" loading="lazy" decoding="async">`;
+}
+
 // ---------------------------------------------------------------------------
 // Firebase
 // ---------------------------------------------------------------------------
@@ -1732,7 +1746,7 @@ function optBtn(draw, slot, r, m, picked, action, results) {
   }
   return `<button class="${cls}" ${disabled ? 'disabled' : ''}`
     + (action ? ` data-action="${action}" data-r="${r}" data-m="${m}" data-slot="${slot}"` : '')
-    + `>${esc(label(draw, slot))}</button>`;
+    + `>${flagImg(draw, slot)}<span class="opt-name">${esc(label(draw, slot))}</span></button>`;
 }
 
 // ---- the match list for one round ----
@@ -1794,7 +1808,7 @@ function bracketView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Your champion pick</div>
-      <div class="name">${champ !== null ? esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
+      <div class="name">${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
   }
   html += '</div>';
   return html;
@@ -1869,7 +1883,7 @@ function entryView() {
   html += matchList(picks[ev], ev, state.round, null, showResults ? state.results[ev] : null);
   const champ = picks[ev].r6[0];
   html += `<div class="champion-box"><div class="lbl">Champion pick</div>
-    <div class="name">${champ !== null ? esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
+    <div class="name">${champ !== null ? flagImg(DRAWS[ev], champ) + esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
   html += `</div>`;
   return html;
 }
@@ -1923,7 +1937,7 @@ function commissionerView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Champion</div>
-      <div class="name">${champ !== null ? esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
+      <div class="name">${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
   }
   html += `</div>`;
 
