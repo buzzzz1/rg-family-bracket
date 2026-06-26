@@ -1,8 +1,27 @@
-# Roland Garros 2026 — Family Bracket
+# Kiwi House Family Bracket — Wimbledon 2026
 
 A shared web page where everyone in the family fills out a full 128-player
 bracket for the men's and women's singles draws, and a live leaderboard scores
 the predictions as the tournament plays out.
+
+The site at the root (`kiwihousebracket.com`) is the **current tournament**
+(Wimbledon 2026). The previous tournament stays online, read-only, at
+`kiwihousebracket.com/rg2026/` (its files live in the `rg2026/` folder).
+
+## Starting a new tournament
+
+Each tournament keeps its own picks/results so a new pool starts empty while
+the old one is preserved:
+
+1. Copy the current root files into a dated archive folder (e.g. `rg2026/`) —
+   that frozen copy keeps pointing at the tournament that just finished.
+2. In the new root `app.js` **and** `scripts/update-results.mjs`, bump the
+   `SEASON` constant (e.g. `'wim2026'` → `'usopen2026'`). That namespaces the
+   Firestore collections (`<SEASON>_entries`, `<SEASON>_meta`) so the new pool
+   is empty. Leaving `SEASON` empty uses the original `entries`/`meta`
+   collections (that's what the Roland Garros archive does).
+3. Replace `draws.js` with the new official draw, empty `results-feed.json`,
+   and bump the `?v=` cache stamp in `index.html` and `app.js`.
 
 ## What's in here
 
@@ -101,7 +120,7 @@ then open <http://localhost:8000>. (Opening `index.html` directly as a
 
 ## Notes
 
-- The draws were taken from the official rolandgarros.com draw on 2026-05-21.
+- The Wimbledon 2026 draws were taken from the official draw made on 2026-06-26.
 - One bracket is stored per device. If two people share a device, use the
   "not you?" link to start a separate bracket.
 - The commissioner password is a light gate to prevent accidental edits, not

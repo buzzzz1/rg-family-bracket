@@ -1,16 +1,13 @@
 :root {
-  /* Wimbledon palette: the classic purple-and-green. --clay/--clay-dark keep
-     their (now historical) names but carry the tournament accent colour, so the
-     hundreds of references elsewhere didn't need touching. */
-  --clay: #4c2a86;       /* Wimbledon purple (accent: buttons, links) */
-  --clay-dark: #34206a;  /* darker purple for hover/headings */
-  --court: #2f6a3a;      /* grass green */
-  --cream: #f4f1ea;
+  --clay: #c8623a;
+  --clay-dark: #a84a28;
+  --court: #3f6f4a;
+  --cream: #f5ece1;
   --card: #ffffff;
-  --ink: #21202a;
-  --muted: #837e8b;
-  --line: #e2dced;
-  --gold: #c9a227;
+  --ink: #2a2320;
+  --muted: #8b8178;
+  --line: #e3d8c8;
+  --gold: #d8a23a;
 }
 
 * { box-sizing: border-box; }
