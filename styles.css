@@ -219,11 +219,11 @@ button { font-family: inherit; }
 .pm-note2 { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); }
 .pm-slams { display: flex; flex-direction: column; }
 .pm-srow {
-  display: flex; justify-content: space-between; gap: 12px;
+  display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
   padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px;
 }
-.pm-slbl { color: var(--muted); }
-.pm-sval { font-weight: 700; color: var(--ink); }
+.pm-slbl { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
+.pm-sval { font-weight: 700; color: var(--ink); text-align: right; }
 .pm-path { list-style: none; margin: 4px 0 0; padding: 0; }
 .pm-path li {
   display: flex; align-items: center; gap: 8px;
