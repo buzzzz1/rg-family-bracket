@@ -2,9 +2,9 @@
 // update-results.mjs
 //
 // Reads `results-feed.json` — a list of completed matches as [winner, loser]
-// name pairs — resolves each pair against the official Wimbledon 2026
+// name pairs — resolves each pair against the official Roland Garros 2026
 // draws, and writes the computed match-winner structure to Firestore
-// (the `<SEASON>_meta/results` document) so the family leaderboard updates.
+// (the `meta/results` document) so the family leaderboard updates.
 //
 // The scheduled agent fills `results-feed.json` from the official results,
 // then runs:   node scripts/update-results.mjs
@@ -23,10 +23,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const ROUND_SIZES = [64, 32, 16, 8, 4, 2, 1];
 const ROUND_SHORT = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'Final'];
-// Must match SEASON in app.js so results land in the same namespace the app
-// reads. Empty string = the original Roland Garros 'meta' collection.
-const SEASON = 'wim2026';
-const META_COLL = SEASON ? `${SEASON}_meta` : 'meta';
 
 // --- name matching -------------------------------------------------------
 function norm(s) {
@@ -138,7 +134,7 @@ function toValue(v) {
 async function fetchExistingResults() {
   const { projectId, apiKey } = firebaseConfig;
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}` +
-    `/databases/(default)/documents/${META_COLL}/results?key=${apiKey}`;
+    `/databases/(default)/documents/meta/results?key=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) return null;
   const data = await res.json();
@@ -220,7 +216,7 @@ async function main() {
 
   const { projectId, apiKey } = firebaseConfig;
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}` +
-    `/databases/(default)/documents/${META_COLL}/results?key=${apiKey}`;
+    `/databases/(default)/documents/meta/results?key=${apiKey}`;
   const body = {
     fields: {
       men: toValue(mergedMen),

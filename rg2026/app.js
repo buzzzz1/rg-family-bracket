@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-1830';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-1830';
+import { DRAWS } from './draws.js?v=20260612-1633';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260612-1633';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -17,48 +17,12 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
 
-// Each tournament gets its own Firestore namespace so a new pool starts empty
-// while past tournaments keep their data. Bump SEASON for the next event.
-// The archived Roland Garros 2026 page (in /rg2026/) leaves SEASON empty and
-// keeps using the original 'entries' / 'meta' collections.
-const SEASON = 'wim2026';
-const ENTRIES_COLL = SEASON ? `${SEASON}_entries` : 'entries';
-const META_COLL = SEASON ? `${SEASON}_meta` : 'meta';
-
 // The family members. Each picks their name from the dropdown; their bracket
 // is stored under that name and follows them across devices.
 const PLAYERS = ['Chloe', 'Claire', 'Adrian', 'Chris', 'Mom', 'Michael', 'Andrew'];
 
 const NEEDS_SETUP = !firebaseConfig || !firebaseConfig.apiKey ||
   /PASTE_|YOUR_/.test(firebaseConfig.apiKey);
-
-// ISO 3166-1 alpha-2 → display name, for the codes used in the draws.
-const COUNTRY_NAMES = {
-  ad: 'Andorra', ar: 'Argentina', at: 'Austria', au: 'Australia', ba: 'Bosnia & Herzegovina',
-  be: 'Belgium', bg: 'Bulgaria', br: 'Brazil', by: 'Belarus', ca: 'Canada', ch: 'Switzerland',
-  cl: 'Chile', cn: 'China', co: 'Colombia', cz: 'Czechia', de: 'Germany', dk: 'Denmark',
-  es: 'Spain', fi: 'Finland', fr: 'France', gb: 'Great Britain', ge: 'Georgia', gr: 'Greece',
-  hr: 'Croatia', hu: 'Hungary', id: 'Indonesia', it: 'Italy', jp: 'Japan', kr: 'South Korea',
-  kz: 'Kazakhstan', lt: 'Lithuania', lv: 'Latvia', mk: 'North Macedonia', mx: 'Mexico',
-  nl: 'Netherlands', no: 'Norway', pe: 'Peru', ph: 'Philippines', pl: 'Poland', pt: 'Portugal',
-  py: 'Paraguay', ro: 'Romania', rs: 'Serbia', ru: 'Russia', si: 'Slovenia', sk: 'Slovakia',
-  th: 'Thailand', tr: 'Turkey', ua: 'Ukraine', us: 'United States', uz: 'Uzbekistan',
-};
-function countryName(cc) {
-  cc = (cc || '').toLowerCase();
-  return COUNTRY_NAMES[cc] || (cc ? cc.toUpperCase() : '');
-}
-// Age in whole years from a 'YYYY-MM-DD' date of birth, or null if unknown.
-function ageFromDob(dob) {
-  if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
-  const b = new Date(dob + 'T00:00:00');
-  if (isNaN(b)) return null;
-  const now = new Date();
-  let age = now.getFullYear() - b.getFullYear();
-  const m = now.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
-  return age;
-}
 
 // ---------------------------------------------------------------------------
 // State
@@ -80,7 +44,6 @@ const state = {
   config: { locked: false },
   commish: false,
   viewingEntryId: null,
-  playerModal: null,        // { ev, slot } when a player info card is open
   ready: false,
 };
 
@@ -714,7 +677,7 @@ function generateTournamentRecapText() {
 
 function advanceRecap() {
   if (!db) return;
-  fb.setDoc(fb.doc(db, META_COLL, 'recap_snapshot'), {
+  fb.setDoc(fb.doc(db, 'meta', 'recap_snapshot'), {
     men: state.results.men,
     women: state.results.women,
     takenAt: Date.now(),
@@ -1102,7 +1065,7 @@ function renderFinalRecapHTML(rc) {
   let html = `<div class="recap-page">`;
   html += `<div class="recap-hero">
     <h2>🏆 Tournament Wrap-Up</h2>
-    <div class="sub">Wimbledon 2026 · the family vs the draw</div>
+    <div class="sub">Roland Garros 2026 · the family vs the draw</div>
     <div class="actions"><button data-action="copy-final-recap">📋 Copy as text</button></div>
   </div>`;
 
@@ -1139,7 +1102,7 @@ function renderFinalRecapHTML(rc) {
 
   // Champions
   if (champions.men || champions.women) {
-    html += `<div class="panel"><h2>👑 Wimbledon Champions</h2><div class="champ-row">`;
+    html += `<div class="panel"><h2>👑 Roland Garros Champions</h2><div class="champ-row">`;
     [['men', "Men's"], ['women', "Women's"]].forEach(([k, lbl]) => {
       const c = champions[k]; if (!c) return;
       html += `<div class="champ-card">
@@ -1153,16 +1116,47 @@ function renderFinalRecapHTML(rc) {
     html += `</div></div>`;
   }
 
-  // Stories of the Tournament — a short, tournament-agnostic lead-in. The
-  // blow-by-blow narrative lives in the data-driven Round-by-Round and
-  // Champions panels below, so there are no hand-written storylines to keep
-  // current from one event to the next.
+  // Stories of the Tournament
   html += `<div class="panel"><h2>🌟 Stories of the Tournament</h2>`;
+
   html += `<div class="story-card">
-    <p>Two weeks, 254 matches, one family bracket. Here's how Wimbledon 2026
-    played out against everyone's picks — the upsets that wrecked brackets, the
-    rounds the family nailed, and who ended up on the podium.</p>
+    <h3>📜 Two debut Grand Slam champions</h3>
+    <p>Alexander Zverev finally captures his first major in his fourth Slam final, beating Flavio Cobolli (#10) 6-1, 4-6, 6-4, 6-7(5), 6-1. The first German man to win a major since Boris Becker at the 1996 Australian Open — and the first man to make Roland Garros his maiden Slam since Rafael Nadal 21 years ago.</p>
+    <p>Mirra Andreeva — 19 years old — lifts her first Slam, defeating Maja Chwalińska 6-3, 6-2 in the final. She's the youngest women's champion at Roland Garros since Monica Seles in 1992, and the third-youngest women's Slam champion of the 21st century.</p>
   </div>`;
+
+  html += `<div class="story-card">
+    <h3>🌟 Maja Chwalińska — the Cinderella run</h3>
+    <p>The unseeded Pole tore through the women's draw to the final: Q. Zheng → E. Mertens (#23) → M. Sakkari → D. Parry → A. Kalinskaya (#22) → D. Shnaider (#25, who'd just stunned Sabalenka in the QF) → a meeting with Andreeva for the title (lost 6-3, 6-2).</p>
+    <p>She didn't lift the trophy, but the bracket-buster of the tournament.</p>
+  </div>`;
+
+  html += `<div class="story-card">
+    <h3>🚀 The next gen has arrived</h3>
+    <ul>
+      <li><strong>Mirra Andreeva</strong> (W, 19) — Roland Garros champion.</li>
+      <li><strong>João Fonseca</strong> (M, 19, #28) — beat #3 Djokovic in R32 in the viral match of the tournament. Made the QF.</li>
+      <li><strong>Jakub Menšík</strong> (M, 20, #26) — semifinal! Beat #8 De Minaur, #11 Rublev, and #28 Fonseca. Lost to Zverev.</li>
+      <li><strong>Rafa Jódar</strong> (M, 19, #27) — first Slam quarterfinal on his Roland Garros main-draw debut. Fifth man this century to make the QF on a Slam debut.</li>
+      <li><strong>Moïse Kouamé</strong> (M, 17, unseeded) — French teenager beat former Slam champion Marin Cilic in his opener — youngest player in the Open era to topple a major champion at Roland Garros. Reached R32.</li>
+      <li><strong>Martín Landaluce</strong> (M, 20, unseeded) — Spaniard made R32 on his debut.</li>
+    </ul>
+    <p class="story-note">Jódar, Fonseca, and Kouamé were the first trio of teenagers to reach the third round at a major since 2006.</p>
+  </div>`;
+
+  html += `<div class="story-card">
+    <h3>👑 When the chalk fell</h3>
+    <p>The favorites had a brutal week. <strong>Jannik Sinner (#1)</strong> went out R64 to JM. Cerundolo — the men's upset of the tournament. <strong>Aryna Sabalenka (#1)</strong> was stunned by Diana Shnaider (#25) in the QF. <strong>Iga Świątek (#3)</strong> fell to Kostyuk in R16. <strong>Coco Gauff (#4)</strong> was ousted by Potapova in R32.</p>
+    <p>By the semifinals, the top of both draws had collapsed — and Zverev (#2) was the one to take advantage.</p>
+  </div>`;
+
+  html += `<div class="story-card">
+    <h3>🥵 An all-time marathon edition</h3>
+    <p>Roland Garros 2026 was on pace to match the tournament record of <strong>33 five-set matches</strong> (set in 1992 and 2001) — 30+ five-setters were already in the books before the round of 16 had even finished. The men's side hit <strong>20+ matches over 4 hours</strong>, the most since records began in 1999.</p>
+    <p>The headline marathon: <strong>JM. Cerundolo d. Martín Landaluce, 5 hours 58 minutes</strong> in R32 — the third-longest match in Roland Garros history, behind only Santoro vs. Clément (2004, 6h33) and Moutet vs. Giustino (2020, 6h05). Cerundolo had stunned #1 Sinner just one round earlier. What a fortnight for him.</p>
+    <p>And 17-year-old Moïse Kouamé's 4h56m second-round win over Vallejo deserves its own mention — he became the youngest man to reach the third round of a major since Nadal at Wimbledon 2003.</p>
+  </div>`;
+
   html += `</div>`;
 
   // Round-by-Round
@@ -1170,8 +1164,10 @@ function renderFinalRecapHTML(rc) {
     <p class="small muted" style="margin: 0 0 12px">The headline moment from each round of the draw.</p>`;
   rc.byRoundFacts.forEach(f => {
     let headline = '';
-    if (f.r === 5 && f.played > 0 && f.acc === 1) {
-      headline = `Family unanimity — every live SF pick was correct (${f.correct}/${f.played}). The brackets that survived to the semis all called the winner.`;
+    if (f.r === 6) {
+      headline = `Two first-time Slam champions — Alexander Zverev (M) and Mirra Andreeva (W, 19).`;
+    } else if (f.r === 5 && f.played > 0 && f.acc === 1) {
+      headline = `Family unanimity — every live SF pick was correct (${f.correct}/${f.played}). After the chalk implosions earlier, the few brackets that still had a player alive at the semis all called the winner.`;
     } else if (f.upset) {
       const d = DRAWS[f.upset.ev];
       let line = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
@@ -1266,7 +1262,7 @@ function generateFinalRecapText() {
     uniCorr, uniWrong, seedM, seedW } = rc;
   const L = [];
   L.push('🏆 KIWI HOUSE BRACKET — TOURNAMENT WRAP-UP');
-  L.push('Wimbledon 2026');
+  L.push('Roland Garros 2026');
   L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   L.push('');
   L.push('🥇 PODIUM');
@@ -1275,18 +1271,54 @@ function generateFinalRecapText() {
   stats.slice(3).forEach(s => L.push(`   ${s.rank}. ${s.name.padEnd(8)} ${String(s.total).padStart(4)} pts`));
   L.push(`   Spread: ${stats[0].total - stats.at(-1).total} pts between 1st and last.`);
   L.push('');
-  L.push('👑 WIMBLEDON CHAMPIONS');
+  L.push('👑 ROLAND GARROS CHAMPIONS');
   if (champions.men) L.push(`   Men's:   ${champions.men.name} — called by ${champions.men.callers.length ? champions.men.callers.join(', ') : 'NOBODY 😬'}`);
   if (champions.women) L.push(`   Women's: ${champions.women.name} — called by ${champions.women.callers.length ? champions.women.callers.join(', ') : 'NOBODY 😬'}`);
   L.push('');
   L.push('🌟 STORIES OF THE TOURNAMENT');
-  L.push('   Two weeks, 254 matches, one family bracket. The upsets, the rounds the');
-  L.push('   family nailed, and the final podium — all from your picks vs. the draw.');
+  L.push('');
+  L.push('   📜 Two debut Grand Slam champions');
+  L.push('     Alexander Zverev beats Cobolli 6-1, 4-6, 6-4, 6-7(5), 6-1 in his fourth Slam');
+  L.push('     final. First German man to win a major since Becker at AO 1996; first man');
+  L.push('     to make Roland Garros his maiden Slam since Nadal 21 years ago.');
+  L.push('     Mirra Andreeva (19) beats Maja Chwalińska 6-3, 6-2. Youngest women\'s RG');
+  L.push('     champion since Seles in 1992; third-youngest women\'s Slam champ of the 21st century.');
+  L.push('');
+  L.push('   🌟 Maja Chwalińska — the Cinderella run');
+  L.push('     The unseeded Pole tore through the women\'s draw to the final:');
+  L.push('     Q. Zheng → Mertens (#23) → Sakkari → Parry → Kalinskaya (#22) →');
+  L.push('     Shnaider (#25) → final vs Andreeva (lost 6-3, 6-2). The bracket-buster of the tournament.');
+  L.push('');
+  L.push('   🚀 The next gen has arrived');
+  L.push('     · Mirra Andreeva (W, 19) — Roland Garros champion');
+  L.push('     · João Fonseca (M, 19, #28) — beat #3 Djokovic in R32, made QF');
+  L.push('     · Jakub Menšík (M, 20, #26) — SF; beat De Minaur, Rublev, Fonseca');
+  L.push('     · Rafa Jódar (M, 19, #27) — first Slam QF on RG main-draw debut');
+  L.push('     · Moïse Kouamé (M, 17) — beat former champion Cilic; youngest Open-era player to');
+  L.push('       topple a major champ at RG. Reached R32.');
+  L.push('     · Martín Landaluce (M, 20) — Spaniard made R32 on debut');
+  L.push('     Jódar/Fonseca/Kouamé: first trio of teenagers to reach R32 of a major since 2006.');
+  L.push('');
+  L.push('   👑 When the chalk fell');
+  L.push('     Sinner (#1) out R64 to Cerundolo. Sabalenka (#1) stunned by Shnaider (#25) in QF.');
+  L.push('     Świątek (#3) to Kostyuk R16. Gauff (#4) to Potapova R32. Zverev (#2) the lone');
+  L.push('     top-seed left standing.');
+  L.push('');
+  L.push('   🥵 An all-time marathon edition');
+  L.push('     RG 2026 on pace to match the all-time record of 33 five-set matches (1992, 2001):');
+  L.push('     30+ five-setters were done before the round of 16 had finished. 20+ men\'s singles');
+  L.push('     matches over 4 hours — most since records began in 1999.');
+  L.push('     Headline marathon: JM. Cerundolo d. Martín Landaluce 5h58m in R32 — third-longest');
+  L.push('     match in RG history (behind Santoro/Clément 2004 at 6h33 and Moutet/Giustino 2020');
+  L.push('     at 6h05). Cerundolo had stunned #1 Sinner one round earlier.');
+  L.push('     17-year-old Moïse Kouamé\'s 4h56m R2 win over Vallejo: youngest man to reach R3');
+  L.push('     of a major since Nadal at Wimbledon 2003.');
   L.push('');
   L.push('🎬 ROUND-BY-ROUND');
   rc.byRoundFacts.forEach(f => {
     let head = '';
-    if (f.r === 5 && f.played > 0 && f.acc === 1) head = `Family unanimity — every live SF pick correct (${f.correct}/${f.played}). The brackets that survived to the semis all called the winner.`;
+    if (f.r === 6) head = 'Two first-time Slam champions — Zverev (M) and Andreeva (W, 19).';
+    else if (f.r === 5 && f.played > 0 && f.acc === 1) head = `Family unanimity — every live SF pick correct (${f.correct}/${f.played}). The brackets that survived to the semis all called the winner.`;
     else if (f.upset) {
       const d = DRAWS[f.upset.ev];
       head = `${recapName(d, f.upset.winner)} d. ${recapName(d, f.upset.loser)}`;
@@ -1519,52 +1551,6 @@ function label(draw, slot) {
   return p.seed ? `${p.name} (${p.seed})` : p.name;
 }
 
-// Small country flag for a player slot. Returns safe HTML (an <img> from the
-// flagcdn CDN, which renders consistently across devices) or '' when the slot
-// has no known country. The ISO code comes from our own draws data, but we
-// still whitelist it to [a-z]{2} so this is always safe to insert unescaped.
-function flagImg(draw, slot) {
-  if (slot === null || slot === undefined) return '';
-  const p = draw[slot];
-  const cc = p && typeof p.country === 'string' ? p.country.toLowerCase() : '';
-  if (!/^[a-z]{2}$/.test(cc)) return '';
-  return `<img class="flag" src="https://flagcdn.com/20x15/${cc}.png" ` +
-    `srcset="https://flagcdn.com/40x30/${cc}.png 2x" width="20" height="15" ` +
-    `alt="${cc.toUpperCase()}" loading="lazy" decoding="async">`;
-}
-
-// Player info card shown when the ⓘ next to a player is tapped. Reads the extra
-// fields (currentRank / careerHigh / dob) from the draw; any that are missing
-// show as "—". Men are ranked on the ATP tour, women on the WTA tour.
-function playerModalHTML() {
-  if (!state.playerModal) return '';
-  const { ev, slot } = state.playerModal;
-  const draw = DRAWS[ev];
-  const p = draw && draw[slot];
-  if (!p) return '';
-  const tour = ev === 'men' ? 'ATP' : 'WTA';
-  const age = ageFromDob(p.dob);
-  const cc = (p.country || '').toLowerCase();
-  const fmtRank = (v) => (typeof v === 'number' ? `#${v}` : '—');
-  const row = (lbl, val) => `<div class="pm-row"><span class="pm-lbl">${lbl}</span><span class="pm-val">${val}</span></div>`;
-  return `<div class="pm-backdrop" data-action="close-player">
-    <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
-      <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
-      <div class="pm-head">
-        ${flagImg(draw, slot)}
-        <div>
-          <div class="pm-name">${esc(p.name)}</div>
-          ${p.seed ? `<div class="pm-seed">Seed ${p.seed}</div>` : `<div class="pm-seed unseeded">Unseeded</div>`}
-        </div>
-      </div>
-      ${row('Country', esc(countryName(cc)) || '—')}
-      ${row('Age', age != null ? age : '—')}
-      ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
-      ${row(`Career-high ${tour} ranking`, fmtRank(p.high))}
-    </div>
-  </div>`;
-}
-
 // ---------------------------------------------------------------------------
 // Firebase
 // ---------------------------------------------------------------------------
@@ -1576,7 +1562,7 @@ async function initFirebase() {
   const app = appMod.initializeApp(firebaseConfig);
   db = fb.getFirestore(app);
 
-  fb.onSnapshot(fb.collection(db, ENTRIES_COLL), snap => {
+  fb.onSnapshot(fb.collection(db, 'entries'), snap => {
     state.error = null;
     state.entries = {};
     snap.forEach(d => { state.entries[d.id] = { id: d.id, ...d.data() }; });
@@ -1600,7 +1586,7 @@ async function initFirebase() {
     render();
   }, err => { state.error = err; render(); });
 
-  fb.onSnapshot(fb.doc(db, META_COLL, 'results'), d => {
+  fb.onSnapshot(fb.doc(db, 'meta', 'results'), d => {
     const data = d.exists() ? d.data() : {};
     state.results = {
       men: normalizePicks(data.men),
@@ -1609,12 +1595,12 @@ async function initFirebase() {
     render();
   });
 
-  fb.onSnapshot(fb.doc(db, META_COLL, 'config'), d => {
+  fb.onSnapshot(fb.doc(db, 'meta', 'config'), d => {
     state.config = d.exists() ? { locked: !!d.data().locked } : { locked: false };
     render();
   });
 
-  fb.onSnapshot(fb.doc(db, META_COLL, 'recap_snapshot'), d => {
+  fb.onSnapshot(fb.doc(db, 'meta', 'recap_snapshot'), d => {
     const data = d.exists() ? d.data() : null;
     state.recapSnapshot = data ? {
       men: normalizePicks(data.men),
@@ -1630,7 +1616,7 @@ function saveMyEntry() {
   if (!state.userId || !db) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    fb.setDoc(fb.doc(db, ENTRIES_COLL, state.userId), {
+    fb.setDoc(fb.doc(db, 'entries', state.userId), {
       name: state.userName,
       pin: state.userPin || '',
       men: state.myPicks.men,
@@ -1645,7 +1631,7 @@ function saveResults() {
   if (!db) return;
   clearTimeout(resultsTimer);
   resultsTimer = setTimeout(() => {
-    fb.setDoc(fb.doc(db, META_COLL, 'results'), {
+    fb.setDoc(fb.doc(db, 'meta', 'results'), {
       men: state.results.men,
       women: state.results.women,
       updatedAt: Date.now(),
@@ -1655,7 +1641,7 @@ function saveResults() {
 
 function setLocked(locked) {
   if (!db) return;
-  fb.setDoc(fb.doc(db, META_COLL, 'config'), { locked }, { merge: true })
+  fb.setDoc(fb.doc(db, 'meta', 'config'), { locked }, { merge: true })
     .catch(err => alert('Could not update lock: ' + err.message));
 }
 
@@ -1752,7 +1738,7 @@ function render() {
   else if (state.view === 'commissioner') body = commissionerView();
   else body = bracketView();
 
-  appEl.innerHTML = header() + body + footer() + playerModalHTML();
+  appEl.innerHTML = header() + body + footer();
 }
 
 function header() {
@@ -1762,7 +1748,7 @@ function header() {
     <header class="app-head">
       <div class="brand">
         <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-        <div class="subtitle">Wimbledon 2026</div>
+        <div class="subtitle">Roland Garros 2026</div>
       </div>
       <div class="whoami">Playing as <strong>${esc(state.userName)}</strong>
         · <a data-action="new-bracket">not you?</a></div>
@@ -1790,18 +1776,13 @@ function roundSeg(picks) {
   return `<div class="rounds">${ROUND_SHORT.map((s, r) => {
     const done = picks['r' + r].every(v => v !== null);
     return `<button class="${state.round === r ? 'active' : ''}" data-action="round" data-round="${r}">${s}${done ? ' <span class="chk">✓</span>' : ''}</button>`;
-  }).join('')}</div>
-  <div class="swipe-hint">‹ swipe to change round ›</div>`;
+  }).join('')}</div>`;
 }
 
 // ---- a single match's two option buttons ----
-// `event` is the draw key ('men'/'women') so the ⓘ info button can open the
-// right player. The ⓘ is a SEPARATE button (sibling of the pick button) so it
-// still works when the pick button is disabled (locked / results view).
-function optBtn(draw, slot, r, m, picked, action, results, event) {
+function optBtn(draw, slot, r, m, picked, action, results) {
   const isPicked = picked !== null && picked === slot;
-  const hasPlayer = slot !== null && slot !== undefined;
-  const disabled = !hasPlayer || !action;
+  const disabled = slot === null || slot === undefined || !action;
   let cls = 'opt';
   if (isPicked) cls += ' picked';
   if (results && isPicked) {
@@ -1810,13 +1791,9 @@ function optBtn(draw, slot, r, m, picked, action, results, event) {
       cls = 'opt ' + (picked === res ? 'correct' : 'wrong');
     }
   }
-  const btn = `<button class="${cls}" ${disabled ? 'disabled' : ''}`
+  return `<button class="${cls}" ${disabled ? 'disabled' : ''}`
     + (action ? ` data-action="${action}" data-r="${r}" data-m="${m}" data-slot="${slot}"` : '')
-    + `>${flagImg(draw, slot)}<span class="opt-name">${esc(label(draw, slot))}</span></button>`;
-  const info = hasPlayer
-    ? `<button class="info-dot" data-action="info" data-ev="${event}" data-slot="${slot}" aria-label="Player info" title="Player info">i</button>`
-    : '';
-  return `<div class="optwrap">${btn}${info}</div>`;
+    + `>${esc(label(draw, slot))}</button>`;
 }
 
 // ---- the match list for one round ----
@@ -1827,9 +1804,9 @@ function matchList(picks, event, r, action, results) {
     const c = contenders(picks, r, m);
     const picked = picks['r' + r][m];
     html += `<div class="match"><span class="mno">${m + 1}</span>`
-      + optBtn(draw, c[0], r, m, picked, action, results, event)
+      + optBtn(draw, c[0], r, m, picked, action, results)
       + `<span class="vs">v</span>`
-      + optBtn(draw, c[1], r, m, picked, action, results, event)
+      + optBtn(draw, c[1], r, m, picked, action, results)
       + `</div>`;
   }
   return html + '</div>';
@@ -1878,7 +1855,7 @@ function bracketView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Your champion pick</div>
-      <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${state.event}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
+      <div class="name">${champ !== null ? esc(label(DRAWS[state.event], champ)) : '— not picked —'}</div></div>`;
   }
   html += '</div>';
   return html;
@@ -1953,7 +1930,7 @@ function entryView() {
   html += matchList(picks[ev], ev, state.round, null, showResults ? state.results[ev] : null);
   const champ = picks[ev].r6[0];
   html += `<div class="champion-box"><div class="lbl">Champion pick</div>
-    <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${ev}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[ev], champ) + esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
+    <div class="name">${champ !== null ? esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
   html += `</div>`;
   return html;
 }
@@ -2007,7 +1984,7 @@ function commissionerView() {
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Champion</div>
-      <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${state.event}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
+      <div class="name">${champ !== null ? esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
   }
   html += `</div>`;
 
@@ -2022,10 +1999,10 @@ function commissionerView() {
 function welcomeScreen() {
   const hero = `
     <div class="welcome-hero">
-      <img class="hero-logo" src="logo.png" alt="Wimbledon 2026"
+      <img class="hero-logo" src="logo.png" alt="Roland Garros 2026"
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-      <div class="subtitle">Wimbledon 2026</div>
+      <div class="subtitle">Roland Garros 2026</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
     </div>`;
   return hero + (state.pendingName ? pinPanel() : namePanel());
@@ -2075,7 +2052,7 @@ function setupScreen() {
   return `
     <header class="app-head"><div class="brand">
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-      <div class="subtitle">Wimbledon 2026</div></div></header>
+      <div class="subtitle">Roland Garros 2026</div></div></header>
     <div class="panel">
       <h2>One-time setup needed</h2>
       <p>This app needs a free Firebase project so everyone's picks and the
@@ -2107,7 +2084,7 @@ function errorScreen(err) {
   return `
     <header class="app-head"><div class="brand">
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-      <div class="subtitle">Wimbledon 2026</div></div></header>
+      <div class="subtitle">Roland Garros 2026</div></div></header>
     <div class="panel">
       <h2>Can't reach the database</h2>
       ${perm ? `<p>Firestore is rejecting requests — the security rules still need
@@ -2147,9 +2124,6 @@ appEl.addEventListener('click', e => {
   else if (a === 'round') { state.round = +el.dataset.round; render(); }
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
   else if (a === 'result') { doResult(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
-  else if (a === 'info') { state.playerModal = { ev: el.dataset.ev, slot: +el.dataset.slot }; render(); }
-  else if (a === 'close-player') { state.playerModal = null; render(); }
-  else if (a === 'pm-stop') { /* click inside the card — keep it open */ }
   else if (a === 'view-entry') { state.viewingEntryId = el.dataset.id; state.round = 0; render(); }
   else if (a === 'back') { state.viewingEntryId = null; render(); }
   else if (a === 'toggle-lock') { setLocked(!state.config.locked); }
@@ -2162,32 +2136,6 @@ appEl.addEventListener('click', e => {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
   }
 });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && state.playerModal) { state.playerModal = null; render(); }
-});
-
-// Swipe left/right to move the draw forward/back a round. Only active where the
-// round navigation is on screen (bracket / entry / commissioner results), and
-// ignored while a player card is open. A swipe must be clearly horizontal so it
-// doesn't hijack vertical scrolling.
-let swipeStart = null;
-appEl.addEventListener('touchstart', e => {
-  swipeStart = e.touches.length === 1
-    ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
-}, { passive: true });
-appEl.addEventListener('touchend', e => {
-  const s = swipeStart; swipeStart = null;
-  if (!s || state.playerModal) return;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - s.x, dy = t.clientY - s.y;
-  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.8) return; // not a clean horizontal swipe
-  if (!appEl.querySelector('.rounds')) return;                        // no round nav in this view
-  const next = state.round + (dx < 0 ? 1 : -1);                       // swipe left = forward
-  if (next < 0 || next > 6) return;
-  state.round = next;
-  render();
-}, { passive: true });
 
 appEl.addEventListener('submit', e => {
   e.preventDefault();
