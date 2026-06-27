@@ -222,19 +222,23 @@ button { font-family: inherit; }
 .flowgroup .brace::after {
   content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 3px; background: var(--clay-dark);
 }
-/* current-round match: the two options stacked with a "v" divider between */
+/* current-round match: the two options stacked with a round "VS" badge sitting
+   in the gap between them, so each pairing reads as an obvious head-to-head. */
 .flow .match {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+  position: relative;
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 10px; border: 2px solid var(--line); border-radius: 12px; background: var(--card);
 }
 .flow .match .mno { display: none; }
 .flow .match .vs {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--clay-dark); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; letter-spacing: .5px;
+  box-shadow: 0 0 0 3px var(--card);
 }
-.flow .match .vs::before, .flow .match .vs::after {
-  content: ""; flex: 1; height: 1px; background: var(--line);
-}
+.flow .match .vs::before, .flow .match .vs::after { content: none; }
 /* next-round preview */
 .flow-next { border: 1px solid var(--line); border-radius: 10px; background: #faf8f4; overflow: hidden; }
 .flow-next .fn-p { display: flex; align-items: center; gap: 7px; padding: 11px 12px; font-size: 14px; min-height: 46px; }
@@ -281,10 +285,10 @@ button { font-family: inherit; }
   .flowgroup .cur { gap: 16px; }
   .flowgroup .brace::before { border-radius: 0 9px 9px 0; }
   /* stack the two options vertically inside each flow match on phones */
-  .flow .match { display: flex; flex-direction: column; padding: 6px; gap: 4px; border-radius: 9px; }
+  .flow .match { display: flex; flex-direction: column; padding: 7px; gap: 16px; border-radius: 10px; }
   .flow .opt { min-height: 40px; font-size: 12px; }
   .flow .info-dot { flex-basis: 26px; font-size: 13px; }
-  .flow .match .vs { font-size: 10px; letter-spacing: .5px; }
+  .flow .match .vs { width: 26px; height: 26px; font-size: 10px; }
   .flow-next { border-radius: 9px; }
   .flow-next .fn-p { gap: 5px; padding: 8px; font-size: 12px; min-height: 36px; }
   .champ-node { border-radius: 10px; padding: 12px 8px; font-size: 14px; }
