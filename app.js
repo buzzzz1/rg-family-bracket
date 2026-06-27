@@ -1947,7 +1947,7 @@ function flowMatch(picks, draw, event, r, m, action, results) {
   const picked = picks['r' + r][m];
   return `<div class="match">`
     + optBtn(draw, c[0], r, m, picked, action, results, event)
-    + `<span class="vs">v</span>`
+    + `<span class="vs">VS</span>`
     + optBtn(draw, c[1], r, m, picked, action, results, event)
     + `</div>`;
 }
