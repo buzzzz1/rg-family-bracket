@@ -2176,8 +2176,8 @@ function welcomeScreen() {
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
       <div class="subtitle">Wimbledon 2026</div>
-      <div class="reign">👑 Reigning champion of the court: Michael</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
+      <div class="reign">👑 Reigning champion of the court: Michael</div>
     </div>`;
   return hero + (state.pendingName ? pinPanel() : namePanel());
 }

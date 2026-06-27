@@ -72,7 +72,7 @@ header.app-head {
 .reign {
   margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--clay-dark);
 }
-.welcome-hero .reign { font-size: 15px; margin-top: 8px; }
+.welcome-hero .reign { font-size: 19px; margin-top: 10px; font-weight: 700; }
 
 /* Past tournaments — link card to an archived tournament */
 .archive-card {
