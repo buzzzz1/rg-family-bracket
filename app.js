@@ -1930,17 +1930,16 @@ function matchList(picks, event, r, action, results) {
   return html + '</div>';
 }
 
-// ---- connected "flow" bracket (mobile): current round → next round ----
-// Phones get a connected layout where each round's matches feed (via bracket
-// braces) into the next round's slots; desktop keeps the flat match list.
+// ---- connected "flow" bracket: current round → next round ----
+// Both desktop and phones get a connected layout where each round's matches
+// feed (via bracket braces) into the next round's slots. CSS sizes it
+// comfortably on desktop and compactly on phones.
 function isMobileFlow() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(max-width: 600px)').matches;
 }
 function matchArea(picks, event, r, action, results) {
-  return isMobileFlow()
-    ? flowList(picks, event, r, action, results)
-    : matchList(picks, event, r, action, results);
+  return flowList(picks, event, r, action, results);
 }
 // One current-round match: the two pickable options.
 function flowMatch(picks, draw, event, r, m, action, results) {
