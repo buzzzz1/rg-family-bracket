@@ -201,6 +201,48 @@ button { font-family: inherit; }
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
 
+/* ---- connected "flow" bracket: current round feeds the next round ----
+   Each pair of current-round matches is joined by a bracket brace to the
+   next-round slot they flow into. Comfortable sizing here is for desktop;
+   the mobile media query below tightens it for phones. */
+.flow-heads {
+  display: flex; justify-content: space-between; margin: 6px 4px 12px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--muted);
+}
+.flow { display: flex; flex-direction: column; gap: 20px; }
+.flowgroup { display: grid; grid-template-columns: 1fr 30px 0.7fr; align-items: center; }
+.flowgroup .cur, .flowgroup .nxt { min-width: 0; }
+.flowgroup .cur { display: flex; flex-direction: column; gap: 20px; }
+.flowgroup .brace { position: relative; align-self: stretch; }
+.flowgroup .brace::before {
+  content: ""; position: absolute; left: 0; right: 50%; top: 25%; bottom: 25%;
+  border: 2px solid var(--clay); border-left: none; border-radius: 0 12px 12px 0;
+}
+.flowgroup .brace::after {
+  content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 2px; background: var(--clay);
+}
+/* current-round match becomes a horizontal head-to-head card on desktop */
+.flow .match {
+  display: grid; grid-template-columns: 1fr 22px 1fr; align-items: stretch; gap: 6px;
+  padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.flow .match .mno { display: none; }
+/* next-round preview */
+.flow-next { border: 1px solid var(--line); border-radius: 10px; background: #faf8f4; overflow: hidden; }
+.flow-next .fn-p { display: flex; align-items: center; gap: 7px; padding: 11px 12px; font-size: 14px; min-height: 46px; }
+.flow-next .fn-p + .fn-p { border-top: 1px solid var(--line); }
+.flow-next .fn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-next .fn-p.tbd { color: var(--muted); }
+.flow-next .flag { flex: 0 0 auto; }
+/* champion node (final round) */
+.flowgroup.final .brace::before { display: none; }
+.champ-node {
+  background: linear-gradient(135deg, var(--gold), var(--clay)); color: #fff;
+  border-radius: 12px; padding: 16px 12px; text-align: center; font-weight: 800; font-size: 16px;
+}
+.champ-node .cn-name { margin-top: 3px; font-size: 15px; }
+
 /* On phones, stack the two options vertically (so long names stay legible) but
    keep each matchup an obvious head-to-head: group the pair in a card with a
    "vs" divider between the two players, and space matches apart. */
@@ -225,43 +267,20 @@ button { font-family: inherit; }
   }
   .opt { min-height: 46px; }
 
-  /* ---- connected next-round flow (mobile bracket) ---- */
-  .flow-heads {
-    display: flex; justify-content: space-between; margin: 2px 4px 8px;
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .5px; color: var(--muted);
-  }
-  .flow { display: flex; flex-direction: column; gap: 16px; }
-  .flowgroup { display: grid; grid-template-columns: 1fr 18px 0.74fr; align-items: center; }
-  .flowgroup .cur, .flowgroup .nxt { min-width: 0; }
-  .flowgroup .cur { display: flex; flex-direction: column; gap: 16px; }
-  .flowgroup .brace { position: relative; align-self: stretch; }
-  .flowgroup .brace::before {
-    content: ""; position: absolute; left: 0; right: 50%; top: 25%; bottom: 25%;
-    border: 2px solid var(--clay); border-left: none; border-radius: 0 9px 9px 0;
-  }
-  .flowgroup .brace::after {
-    content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 2px; background: var(--clay);
-  }
-  /* compact match cards inside the flow */
-  .flow .match { padding: 6px; gap: 4px; border-radius: 9px; }
-  .flow .match .mno { display: none; }
+  /* ---- connected next-round flow: tighten the base layout for phones ---- */
+  .flow-heads { margin: 2px 4px 8px; font-size: 10px; }
+  .flow { gap: 16px; }
+  .flowgroup { grid-template-columns: 1fr 18px 0.74fr; }
+  .flowgroup .cur { gap: 16px; }
+  .flowgroup .brace::before { border-radius: 0 9px 9px 0; }
+  /* stack the two options vertically inside each flow match on phones */
+  .flow .match { display: flex; flex-direction: column; padding: 6px; gap: 4px; border-radius: 9px; }
   .flow .opt { min-height: 40px; font-size: 12px; }
   .flow .info-dot { flex-basis: 26px; font-size: 13px; }
   .flow .match .vs { font-size: 10px; letter-spacing: .5px; }
-  /* next-round preview */
-  .flow-next { border: 1px solid var(--line); border-radius: 9px; background: #faf8f4; overflow: hidden; }
-  .flow-next .fn-p { display: flex; align-items: center; gap: 5px; padding: 8px; font-size: 12px; min-height: 36px; }
-  .flow-next .fn-p + .fn-p { border-top: 1px solid var(--line); }
-  .flow-next .fn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .flow-next .fn-p.tbd { color: var(--muted); }
-  .flow-next .flag { flex: 0 0 auto; }
-  /* champion node (final round) */
-  .flowgroup.final .brace::before { display: none; }
-  .champ-node {
-    background: linear-gradient(135deg, var(--gold), var(--clay)); color: #fff;
-    border-radius: 10px; padding: 12px 8px; text-align: center; font-weight: 800; font-size: 14px;
-  }
+  .flow-next { border-radius: 9px; }
+  .flow-next .fn-p { gap: 5px; padding: 8px; font-size: 12px; min-height: 36px; }
+  .champ-node { border-radius: 10px; padding: 12px 8px; font-size: 14px; }
   .champ-node .cn-name { margin-top: 2px; font-size: 13px; }
 }
 
