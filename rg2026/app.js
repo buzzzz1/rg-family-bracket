@@ -1735,15 +1735,14 @@ function render() {
   if (!state.ready) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Connecting…</div>'; return; }
 
   // Read-only archive: no identity needed. Land on the recap and let visitors
-  // browse the leaderboard and every player's bracket.
+  // browse every player's bracket. (Recap + Brackets only — no leaderboard.)
   if (SPECTATOR) {
     // Default to the recap; keep the tab highlight in sync.
-    if (!state.viewingEntryId && state.view !== 'leaderboard' && state.view !== 'brackets') {
+    if (!state.viewingEntryId && state.view !== 'brackets') {
       state.view = 'recap';
     }
     let body;
     if (state.viewingEntryId) body = entryView();
-    else if (state.view === 'leaderboard') body = leaderboardView();
     else if (state.view === 'brackets') body = bracketsView();
     else body = recapView();
     appEl.innerHTML = header() + body + footer();
@@ -1776,7 +1775,6 @@ function header() {
       <div class="whoami">Final results &amp; standings — tap a name to view their bracket</div>
       <nav class="tabs">
         ${tab('recap', '🏆 Recap')}
-        ${tab('leaderboard', 'Leaderboard')}
         ${tab('brackets', 'Brackets')}
       </nav>
     </header>`;
@@ -1802,8 +1800,9 @@ function header() {
 function bracketsView() {
   const entries = Object.values(state.entries).filter(e => e.name).map(e => {
     const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
-    const total = score(mp, state.results.men).total + score(wp, state.results.women).total;
-    return { id: e.id, name: e.name, total };
+    const sM = score(mp, state.results.men).total;
+    const sW = score(wp, state.results.women).total;
+    return { id: e.id, name: e.name, sM, sW, total: sM + sW };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
   let html = `<div class="panel"><h2>Brackets</h2>`;
@@ -1813,7 +1812,11 @@ function bracketsView() {
   entries.forEach(e => {
     html += `<button class="entry-row" data-action="view-entry" data-id="${e.id}">
       <span class="er-name">${esc(e.name)}</span>
-      <span class="er-pts">${e.total.toLocaleString()} pts →</span>
+      <span class="er-split">
+        <span class="er-mw">Men ${e.sM.toLocaleString()}</span>
+        <span class="er-mw">Women ${e.sW.toLocaleString()}</span>
+        <span class="er-total">Total ${e.total.toLocaleString()}</span>
+      </span>
     </button>`;
   });
   html += `</div></div>`;
@@ -1971,7 +1974,7 @@ function leaderboardView() {
 // ---- read-only view of one person's bracket ----
 function entryView() {
   const e = state.entries[state.viewingEntryId];
-  if (!e) { state.viewingEntryId = null; return leaderboardView(); }
+  if (!e) { state.viewingEntryId = null; return bracketsView(); }
   const picks = { men: normalizePicks(e.men), women: normalizePicks(e.women) };
   const ev = state.event;
   const showResults = hasResults();
