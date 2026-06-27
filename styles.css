@@ -188,19 +188,28 @@ button { font-family: inherit; }
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
 
-/* On phones, stack the two options vertically so each gets the full width and
-   long names (e.g. Shapovalov) stay fully legible. The match number sits to the
-   left spanning both; the "v" separator is dropped. */
+/* On phones, stack the two options vertically (so long names stay legible) but
+   keep each matchup an obvious head-to-head: group the pair in a card with a
+   "vs" divider between the two players, and space matches apart. */
 @media (max-width: 600px) {
+  .matches { gap: 14px; }
   .match {
-    grid-template-columns: 20px 1fr;
-    grid-template-areas: "no a" "no b";
-    gap: 5px 6px;
+    display: flex; flex-direction: column; gap: 6px;
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 8px 10px; background: var(--card);
   }
-  .match .mno { grid-area: no; align-self: center; }
-  .match > div:nth-of-type(1) { grid-area: a; }
-  .match > div:nth-of-type(2) { grid-area: b; }
-  .match .vs { display: none; }
+  .match .mno {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-align: left; padding: 0 2px;
+  }
+  .match .mno::before { content: "Match "; }
+  .match .vs {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+  }
+  .match .vs::before, .match .vs::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
   .opt { min-height: 46px; }
 }
 
