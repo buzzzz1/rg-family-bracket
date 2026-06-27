@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260627-1200';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1200';
+import { DRAWS } from './draws.js?v=20260627-1500';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1500';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -988,7 +988,7 @@ function computeFinalRecap(entries) {
     else if (a.title.includes("Men's Singles MVP")) zinger = "Imagine if the women's side had cooperated.";
     else if (a.title.includes("Women's Singles MVP")) zinger = 'Best WTA eye in the family — pure forecasting skill.';
     else if (a.title.includes('Maverick')) zinger = "The contrarian math eats well most Slams — this just wasn't the one.";
-    else zinger = 'The Switzerland of the family — locked in a steady mid-table finish.';
+    else zinger = 'Rock-steady all fortnight — a solid bracket without the wild swings.';
 
     return { tag, numbersLine, callLine, heartLine, zinger };
   }
