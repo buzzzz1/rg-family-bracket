@@ -1831,6 +1831,24 @@ function render() {
   else body = bracketView();
 
   appEl.innerHTML = header() + body + footer() + playerModalHTML();
+
+  // After a swipe commits, slide the freshly-rendered round in from the
+  // direction the next round is "coming from" so the change feels continuous.
+  if (state._slideIn) {
+    const from = state._slideIn === 'right' ? 100 : -100;
+    state._slideIn = null;
+    const pane = appEl.querySelector('.round-pane');
+    if (pane) {
+      pane.style.transition = 'none';
+      pane.style.transform = `translateX(${from}%)`;
+      pane.style.opacity = '0.4';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        pane.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
+        pane.style.transform = 'translateX(0)';
+        pane.style.opacity = '1';
+      }));
+    }
+  }
 }
 
 function header() {
@@ -1939,7 +1957,7 @@ function isMobileFlow() {
     && window.matchMedia('(max-width: 600px)').matches;
 }
 function matchArea(picks, event, r, action, results) {
-  return flowList(picks, event, r, action, results);
+  return `<div class="round-pane">${flowList(picks, event, r, action, results)}</div>`;
 }
 // One current-round match: the two pickable options.
 function flowMatch(picks, draw, event, r, m, action, results) {
@@ -2325,27 +2343,67 @@ window.addEventListener('resize', () => {
   if (now !== _wasMobileFlow) { _wasMobileFlow = now; if (state.ready) render(); }
 });
 
-// Swipe left/right to move the draw forward/back a round. Only active where the
-// round navigation is on screen (bracket / entry / commissioner results), and
-// ignored while a player card is open. A swipe must be clearly horizontal so it
-// doesn't hijack vertical scrolling.
-let swipeStart = null;
+// Swipe left/right to move the draw forward/back a round. The bracket pane
+// follows the finger live, then slides to the next round on release (or springs
+// back if the drag is too short). Only active where the round navigation is on
+// screen (bracket / entry / commissioner) and ignored while a card is open.
+// `axis` locks to 'h' or 'v' on the first real movement so we never hijack
+// vertical scrolling.
+let sw = null;
 appEl.addEventListener('touchstart', e => {
-  swipeStart = e.touches.length === 1
-    ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+  sw = null;
+  if (e.touches.length !== 1 || state.playerModal) return;
+  if (!appEl.querySelector('.rounds')) return;        // no round nav in this view
+  const pane = appEl.querySelector('.round-pane');
+  if (!pane) return;
+  sw = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, pane, w: pane.offsetWidth || 1, axis: null, dx: 0 };
 }, { passive: true });
+
+function swReset(restore) {
+  if (sw && sw.pane && restore) {
+    sw.pane.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
+    sw.pane.style.transform = 'translateX(0)';
+    sw.pane.style.opacity = '1';
+  }
+  sw = null;
+}
+
+appEl.addEventListener('touchmove', e => {
+  if (!sw) return;
+  const dx = e.touches[0].clientX - sw.x0, dy = e.touches[0].clientY - sw.y0;
+  if (sw.axis === null) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // wait for a real movement
+    sw.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    if (sw.axis === 'v') { sw = null; return; }        // vertical → let the page scroll
+    sw.pane.style.transition = 'none';
+  }
+  e.preventDefault();                                  // horizontal: we own the gesture
+  let d = dx;
+  if ((d > 0 && state.round === 0) || (d < 0 && state.round === 6)) d *= 0.3; // resist at the ends
+  sw.dx = d;
+  sw.pane.style.transform = `translateX(${d}px)`;
+  sw.pane.style.opacity = String(1 - Math.min(Math.abs(d) / sw.w, 1) * 0.35);
+}, { passive: false });
+
 appEl.addEventListener('touchend', e => {
-  const s = swipeStart; swipeStart = null;
-  if (!s || state.playerModal) return;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - s.x, dy = t.clientY - s.y;
-  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.8) return; // not a clean horizontal swipe
-  if (!appEl.querySelector('.rounds')) return;                        // no round nav in this view
-  const next = state.round + (dx < 0 ? 1 : -1);                       // swipe left = forward
-  if (next < 0 || next > 6) return;
-  state.round = next;
-  render();
-}, { passive: true });
+  if (!sw) return;
+  if (sw.axis !== 'h') { swReset(true); return; }
+  e.preventDefault();                                  // swipe shouldn't also fire a pick tap
+  const { pane, w, dx } = sw;
+  const forward = dx < 0;
+  const next = state.round + (forward ? 1 : -1);
+  const commit = Math.abs(dx) > Math.min(w * 0.22, 70) && next >= 0 && next <= 6;
+  if (commit) {
+    pane.style.transition = 'transform .16s ease-out, opacity .16s ease-out';
+    pane.style.transform = `translateX(${forward ? -w : w}px)`;
+    pane.style.opacity = '0';
+    state._slideIn = forward ? 'right' : 'left';
+    sw = null;
+    setTimeout(() => { state.round = next; render(); }, 150);
+  } else {
+    swReset(true);
+  }
+}, { passive: false });
 
 appEl.addEventListener('submit', e => {
   e.preventDefault();
