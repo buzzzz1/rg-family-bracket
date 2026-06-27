@@ -351,6 +351,23 @@ button { font-family: inherit; }
 }
 .pm-pname { color: var(--ink); }
 
+/* On phones, compress the player card so the whole thing fits on one screen
+   without scrolling (tighter padding, smaller gaps, slightly smaller type). */
+@media (max-width: 600px) {
+  .pm-backdrop { padding: 10px; }
+  .pm-card { padding: 14px 16px; max-height: 94vh; border-radius: 12px; }
+  .pm-head { gap: 10px; margin: 0 0 8px; }
+  .pm-head .flag { width: 30px; height: 22px; }
+  .pm-name { font-size: 18px; }
+  .pm-seed { font-size: 11px; }
+  .pm-row { padding: 5px 0; font-size: 13px; }
+  .pm-sub { margin: 9px 0 2px; font-size: 11px; }
+  .pm-srow { padding: 4px 0; font-size: 13px; }
+  .pm-path li { padding: 4px 0; font-size: 13px; }
+  .pm-pr { flex-basis: 38px; }
+  .pm-empty { font-size: 12px; }
+}
+
 .champion-box {
   margin-top: 16px; padding: 14px; border-radius: 10px;
   background: linear-gradient(135deg, var(--gold), var(--clay));
