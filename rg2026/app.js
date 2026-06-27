@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260628-0900';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-0900';
+import { DRAWS } from './draws.js?v=20260628-1200';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1085,7 +1085,6 @@ function renderFinalRecapHTML(rc) {
       <div class="medal">${medals[i]}</div>
       <div class="name">${esc(s.name)}</div>
       <div class="pts">${s.total.toLocaleString()} pts</div>
-      <div class="award">${esc(stripIcon(awards[s.name].title))}</div>
     </div>`;
   });
   html += `</div>`;
@@ -1096,7 +1095,6 @@ function renderFinalRecapHTML(rc) {
         <span class="rank">${s.rank}.</span>
         <span class="ar-name">${esc(s.name)}</span>
         <span class="ar-pts">${s.total.toLocaleString()} pts</span>
-        <span class="ar-award" title="${esc(awards[s.name].title)}">${esc(stripIcon(awards[s.name].title))}</span>
       </li>`;
     });
     html += `</ul>`;

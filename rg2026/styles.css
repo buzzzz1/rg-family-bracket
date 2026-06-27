@@ -54,7 +54,7 @@ header.app-head {
   border-bottom: 2px solid var(--line);
   margin-bottom: 14px;
 }
-.brand { display: flex; flex-direction: column; gap: 4px; }
+.brand { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
 .brand h1.title {
   font-family: 'Manrope', system-ui, sans-serif;
   font-size: 24px; line-height: 1.15; margin: 0;
@@ -65,7 +65,7 @@ header.app-head {
   color: var(--court); font-weight: 400; font-size: 20px;
   letter-spacing: .2px;
 }
-.whoami { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.whoami { font-size: 13px; color: var(--muted); margin-top: 2px; text-align: center; }
 .whoami a { color: var(--clay); cursor: pointer; }
 
 nav.tabs { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
@@ -478,8 +478,8 @@ pre.rules {
 }
 .bio-card.first { border-color: var(--gold); border-width: 2px; }
 .bio-card .bio-head {
-  display: flex; justify-content: space-between; align-items: baseline;
-  flex-wrap: wrap; gap: 6px; margin-bottom: 4px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 6px; margin-bottom: 6px;
 }
 .bio-card .bio-name { font-size: 18px; font-weight: 700; font-family: 'Young Serif', serif; }
 .bio-card .bio-rank { color: var(--muted); font-size: 13px; }

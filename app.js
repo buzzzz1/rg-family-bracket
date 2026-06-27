@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260628-0900';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-0900';
+import { DRAWS } from './draws.js?v=20260628-1200';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1915,18 +1915,6 @@ function optBtn(draw, slot, r, m, picked, action, results, event) {
 }
 
 // ---- the match list for one round ----
-// The "winner advances" chip under a match (visible on mobile). Shows the
-// picked player flowing to the next round, so each card reads as a bracket.
-function advChip(draw, picked, r) {
-  const to = r < 6 ? ROUND_SHORT[r + 1] : 'the title 🏆';
-  if (picked === null || picked === undefined) {
-    return `<div class="match-adv empty"><span class="adv-to">winner advances to ${to}</span></div>`;
-  }
-  return `<div class="match-adv"><span class="adv-arrow">▸</span>${flagImg(draw, picked)}`
-    + `<span class="adv-name">${esc(label(draw, picked))}</span>`
-    + `<span class="adv-to">→ ${to}</span></div>`;
-}
-
 function matchList(picks, event, r, action, results) {
   const draw = DRAWS[event];
   let html = '<div class="matches">';
@@ -1937,7 +1925,6 @@ function matchList(picks, event, r, action, results) {
       + optBtn(draw, c[0], r, m, picked, action, results, event)
       + `<span class="vs">v</span>`
       + optBtn(draw, c[1], r, m, picked, action, results, event)
-      + advChip(draw, picked, r)
       + `</div>`;
   }
   return html + '</div>';

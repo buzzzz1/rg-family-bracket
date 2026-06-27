@@ -201,13 +201,9 @@ button { font-family: inherit; }
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
 
-/* The "winner advances" chip only appears in the stacked mobile layout. */
-.match-adv { display: none; }
-
 /* On phones, stack the two options vertically (so long names stay legible) but
    keep each matchup an obvious head-to-head: group the pair in a card with a
-   "vs" divider, and add a "winner advances" chip so each card reads as a
-   bracket where your pick moves on. */
+   "vs" divider between the two players, and space matches apart. */
 @media (max-width: 600px) {
   .matches { gap: 14px; }
   .match {
@@ -228,23 +224,6 @@ button { font-family: inherit; }
     content: ""; flex: 1; height: 1px; background: var(--line);
   }
   .opt { min-height: 46px; }
-
-  .match-adv {
-    display: flex; align-items: center; gap: 6px; position: relative;
-    margin-top: 6px; padding: 8px 10px; font-size: 13px; color: var(--ink);
-    background: #f1ebfa; border: 1px solid var(--line); border-radius: 8px;
-  }
-  /* short connector linking the two players above into the winner chip */
-  .match-adv::before {
-    content: ""; position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
-    width: 2px; height: 11px; background: var(--clay);
-  }
-  .match-adv.empty { background: #faf8f4; border-style: dashed; }
-  .match-adv.empty::before { background: var(--line); }
-  .adv-arrow { color: var(--clay); font-weight: 800; }
-  .adv-name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .adv-to { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; margin-left: auto; }
-  .match-adv .flag { margin: 0; }
 }
 
 .pm-backdrop {
