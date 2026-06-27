@@ -217,10 +217,10 @@ button { font-family: inherit; }
 .flowgroup .brace { position: relative; align-self: stretch; }
 .flowgroup .brace::before {
   content: ""; position: absolute; left: 0; right: 50%; top: 25%; bottom: 25%;
-  border: 2px solid var(--clay); border-left: none; border-radius: 0 12px 12px 0;
+  border: 3px solid var(--clay-dark); border-left: none; border-radius: 0 12px 12px 0;
 }
 .flowgroup .brace::after {
-  content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 2px; background: var(--clay);
+  content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 3px; background: var(--clay-dark);
 }
 /* current-round match: the two options stacked with a "v" divider between */
 .flow .match {
