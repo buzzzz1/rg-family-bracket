@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260627-1500';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1500';
+import { DRAWS } from './draws.js?v=20260627-1800';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1800';
 
 // ---------------------------------------------------------------------------
 // Constants

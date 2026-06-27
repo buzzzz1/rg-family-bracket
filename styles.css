@@ -172,18 +172,37 @@ button { font-family: inherit; }
 }
 .champion-box .name.clickable { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-/* ---- player info: ⓘ button + card ---- */
+/* ---- player info: ⓘ tab + card ---- */
+/* The ⓘ is a full-height tab on the right, clearly separated from the pick
+   button so tapping it never changes your pick (and vice versa). */
 .optwrap { position: relative; display: flex; min-width: 0; }
-.optwrap .opt { width: 100%; min-width: 0; padding-right: 30px; }
+.optwrap .opt { flex: 1 1 auto; min-width: 0; border-right: none; border-radius: 8px 0 0 8px; }
+/* An empty/TBD option has no ⓘ tab — keep it fully rounded. */
+.optwrap .opt:last-child { border-right: 1px solid var(--line); border-radius: 8px; }
 .info-dot {
-  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
-  width: 20px; height: 20px; padding: 0; border-radius: 50%;
-  border: 1px solid var(--line); background: #fff; color: var(--clay);
-  font: italic 700 12px/1 Georgia, 'Times New Roman', serif;
+  flex: 0 0 32px; align-self: stretch; padding: 0;
+  border: 1px solid var(--line); border-radius: 0 8px 8px 0;
+  background: #faf6ef; color: var(--clay);
+  font: italic 700 15px/1 Georgia, 'Times New Roman', serif;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  z-index: 2;
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
+
+/* On phones, stack the two options vertically so each gets the full width and
+   long names (e.g. Shapovalov) stay fully legible. The match number sits to the
+   left spanning both; the "v" separator is dropped. */
+@media (max-width: 600px) {
+  .match {
+    grid-template-columns: 20px 1fr;
+    grid-template-areas: "no a" "no b";
+    gap: 5px 6px;
+  }
+  .match .mno { grid-area: no; align-self: center; }
+  .match > div:nth-of-type(1) { grid-area: a; }
+  .match > div:nth-of-type(2) { grid-area: b; }
+  .match .vs { display: none; }
+  .opt { min-height: 46px; }
+}
 
 .pm-backdrop {
   position: fixed; inset: 0; z-index: 1000; padding: 16px;
