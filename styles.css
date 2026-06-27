@@ -201,6 +201,10 @@ button { font-family: inherit; }
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
 
+/* Swipeable round pane — vertical scrolling stays native (pan-y); horizontal
+   drags are delivered to JS so the bracket can follow the finger between rounds. */
+.round-pane { touch-action: pan-y; will-change: transform; }
+
 /* ---- connected "flow" bracket: current round feeds the next round ----
    Each pair of current-round matches is joined by a bracket brace to the
    next-round slot they flow into. Comfortable sizing here is for desktop;
