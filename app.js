@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260627-2300';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-2300';
+import { DRAWS } from './draws.js?v=20260628-0900';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-0900';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1850,14 +1850,14 @@ function header() {
         ${tab('leaderboard', 'Leaderboard')}
         ${tab('recap', '🏆 Recap')}
         ${tab('commissioner', 'Commissioner')}
-        ${tab('archive', 'Past tournaments')}
+        ${tab('archive', 'Past Tournaments')}
       </nav>
     </header>`;
 }
 
 // Past tournaments — links out to each finished tournament's read-only archive.
 function archiveView() {
-  return `<div class="panel"><h2>Past tournaments</h2>
+  return `<div class="panel"><h2>Past Tournaments</h2>
     <p class="muted small">Browse the recap and every family member's bracket from past tournaments.</p>
     <a class="archive-card" href="/rg2026/">
       <span class="ac-emoji">🎾</span>
