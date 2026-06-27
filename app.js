@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260627-0900';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-0900';
+import { DRAWS } from './draws.js?v=20260627-1200';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1200';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1559,10 +1559,30 @@ function projectedPath(ev, slot) {
   return path;
 }
 
+// The stage a slot reaches by WINNING its round-r match (R128 win → into R64).
+const REACHED_STAGE = ['R64', 'R32', 'R16', 'QF', 'SF', 'Final', 'Champion'];
+
+// Which family members picked this player, and how far. Returns entrants who
+// picked the player to win at least their opening match, with the deepest stage
+// they backed them to. Only meaningful once brackets are locked.
+function pickedBy(ev, slot) {
+  const out = [];
+  for (const e of Object.values(state.entries)) {
+    if (!e.name) continue;
+    const picks = normalizePicks(e[ev]);
+    let deepest = -1;
+    for (let r = 0; r < 7; r++) {
+      if (picks['r' + r][matchOfSlot(slot, r)] === slot) deepest = r;
+    }
+    if (deepest >= 0) out.push({ name: e.name, stage: REACHED_STAGE[deepest], r: deepest });
+  }
+  return out.sort((a, b) => b.r - a.r || a.name.localeCompare(b.name));
+}
+
 // Player info card shown when the ⓘ next to a player is tapped. Reads the extra
-// fields (rank / high / dob / titles / slam bests) from the draw; any that are
-// missing show as "—". Men are on the ATP tour, women on the WTA tour. The
-// projected path is computed live from the draw seeding.
+// fields (rank / high / dob / plays / titles / slam bests) from the draw; any
+// that are missing show as "—". Men are on the ATP tour, women on the WTA tour.
+// The projected path is computed live from the draw seeding.
 function playerModalHTML() {
   if (!state.playerModal) return '';
   const { ev, slot } = state.playerModal;
@@ -1573,8 +1593,15 @@ function playerModalHTML() {
   const age = ageFromDob(p.dob);
   const cc = (p.country || '').toLowerCase();
   const fmtRank = (v) => (typeof v === 'number' ? `#${v}` : '—');
+  const plays = p.plays === 'L' ? 'Left-handed' : p.plays === 'R' ? 'Right-handed' : '—';
   const row = (lbl, val) => `<div class="pm-row"><span class="pm-lbl">${lbl}</span><span class="pm-val">${val}</span></div>`;
-  const slamRow = (lbl, v) => `<div class="pm-srow"><span class="pm-slbl">${lbl}</span><span class="pm-sval">${v ? esc(v) : '—'}</span></div>`;
+  // "W 2024, 2025" → "W (2024, 2025)"
+  const slamRow = (lbl, v) => {
+    let disp = '—';
+    if (v) { const m = String(v).match(/^(\S+)\s+(.+)$/); disp = m ? `${m[1]} (${m[2]})` : v; }
+    return `<div class="pm-srow"><span class="pm-slbl">${lbl}</span><span class="pm-sval">${esc(disp)}</span></div>`;
+  };
+  const backers = state.config.locked ? pickedBy(ev, slot) : null;
   return `<div class="pm-backdrop" data-action="close-player">
     <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
       <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
@@ -1587,17 +1614,23 @@ function playerModalHTML() {
       </div>
       ${row('Country', esc(countryName(cc)) || '—')}
       ${row('Age', age != null ? age : '—')}
+      ${row('Plays', plays)}
       ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
       ${row(`Career-high ${tour} ranking`, fmtRank(p.high))}
       ${row(`${tour} singles titles`, typeof p.titles === 'number' ? p.titles : '—')}
 
-      <div class="pm-sub">Best at the Slams</div>
+      <div class="pm-sub">Best result at the slams</div>
       <div class="pm-slams">
         ${slamRow('Australian Open', p.ao)}
         ${slamRow('French Open', p.rg)}
         ${slamRow('Wimbledon', p.wim)}
         ${slamRow('US Open', p.uso)}
       </div>
+
+      ${backers ? `<div class="pm-sub">Picked by your pool</div>
+      ${backers.length ? `<div class="pm-slams">${backers.map(b =>
+        `<div class="pm-srow"><span class="pm-slbl">${esc(b.name)}</span><span class="pm-sval">${b.stage}</span></div>`
+      ).join('')}</div>` : `<p class="pm-empty">Nobody in the pool picked them to win a match.</p>`}` : ''}
 
       <div class="pm-sub">Projected path to the title <span class="pm-note2">(if the seeds hold)</span></div>
       <ol class="pm-path">
@@ -1807,6 +1840,7 @@ function header() {
       <div class="brand">
         <h1 class="title">Kiwi House Family Bracket Challenge</h1>
         <div class="subtitle">Wimbledon 2026</div>
+        <div class="reign">👑 Reigning champion of the court: Michael</div>
       </div>
       <div class="whoami">Playing as <strong>${esc(state.userName)}</strong>
         · <a data-action="new-bracket">not you?</a></div>
@@ -2070,6 +2104,7 @@ function welcomeScreen() {
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
       <div class="subtitle">Wimbledon 2026</div>
+      <div class="reign">👑 Reigning champion of the court: Michael</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
     </div>`;
   return hero + (state.pendingName ? pinPanel() : namePanel());

@@ -69,6 +69,10 @@ header.app-head {
   letter-spacing: .2px;
 }
 .whoami { font-size: 13px; color: var(--muted); margin-top: 2px; text-align: center; }
+.reign {
+  margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--clay-dark);
+}
+.welcome-hero .reign { font-size: 15px; margin-top: 8px; }
 .whoami a { color: var(--clay); cursor: pointer; }
 
 nav.tabs { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
@@ -169,8 +173,8 @@ button { font-family: inherit; }
 .champion-box .name.clickable { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---- player info: ⓘ button + card ---- */
-.optwrap { position: relative; display: flex; }
-.optwrap .opt { width: 100%; padding-right: 30px; }
+.optwrap { position: relative; display: flex; min-width: 0; }
+.optwrap .opt { width: 100%; min-width: 0; padding-right: 30px; }
 .info-dot {
   position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
   width: 20px; height: 20px; padding: 0; border-radius: 50%;
@@ -211,6 +215,7 @@ button { font-family: inherit; }
 }
 .pm-lbl { color: var(--muted); }
 .pm-val { font-weight: 700; color: var(--ink); text-align: right; }
+.pm-empty { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
 
 .pm-sub {
   margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: var(--clay-dark);
