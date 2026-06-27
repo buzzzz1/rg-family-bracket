@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260626-2300';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260626-2300';
+import { DRAWS } from './draws.js?v=20260627-1200';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260627-1200';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -830,10 +830,10 @@ function computeFinalRecap(entries) {
   awards[stats[0].name] = { title: '🏆 Champion of the Pool', detail: `${stats[0].total} pts. Took the crown.` };
   { const r = remaining().slice().sort((a,b) => b.accuracy - a.accuracy)[0];
     if (r) awards[r.name] = { title: '🎯 The Oracle', detail: `Best accuracy at ${(r.accuracy*100).toFixed(1)}% — read the draws the cleanest.` }; }
-  { const r = remaining().slice().sort((a,b) => b.mCorr - a.mCorr)[0];
-    if (r) awards[r.name] = { title: "🎾 Men's Singles MVP", detail: `${r.mCorr} men's matches called — top of the field.` }; }
-  { const r = remaining().slice().sort((a,b) => b.wCorr - a.wCorr)[0];
-    if (r) awards[r.name] = { title: "🎀 Women's Singles MVP", detail: `${r.wCorr} women's matches called — top of the field.` }; }
+  { const r = remaining().slice().sort((a,b) => b.sM - a.sM || b.mCorr - a.mCorr)[0];
+    if (r) awards[r.name] = { title: "🎾 Men's Singles MVP", detail: `${r.sM.toLocaleString()} men's points (${r.mCorr} calls) — top of the field.` }; }
+  { const r = remaining().slice().sort((a,b) => b.sW - a.sW || b.wCorr - a.wCorr)[0];
+    if (r) awards[r.name] = { title: "🎀 Women's Singles MVP", detail: `${r.sW.toLocaleString()} women's points (${r.wCorr} calls) — top of the field.` }; }
   { const r = remaining().slice().sort((a,b) => b.contrarian - a.contrarian)[0];
     if (r && r.contrarian > 0) awards[r.name] = {
       title: '🃏 The Maverick',
@@ -960,8 +960,8 @@ function computeFinalRecap(entries) {
     let tag = '';
     if (a.title.includes('Champion of the Pool')) tag = 'Played the contrarian title card and watched it pay all the way through.';
     else if (a.title.includes('Oracle')) tag = 'Highest pure accuracy in the family — just read the draw cleaner than anyone.';
-    else if (a.title.includes("Men's Singles MVP")) tag = `Best men's bracket in the field with ${s.mCorr} correct calls.`;
-    else if (a.title.includes("Women's Singles MVP")) tag = `Best women's bracket in the field with ${s.wCorr} correct calls.`;
+    else if (a.title.includes("Men's Singles MVP")) tag = `Best men's bracket in the field — ${s.sM.toLocaleString()} points (${s.mCorr} correct calls).`;
+    else if (a.title.includes("Women's Singles MVP")) tag = `Best women's bracket in the field — ${s.sW.toLocaleString()} points (${s.wCorr} correct calls).`;
     else if (a.title.includes('Maverick')) tag = `Made ${s.contrarian} correct calls the rest of the family didn't see — the most distinctive bracket in the pool.`;
     else tag = a.detail;
 
