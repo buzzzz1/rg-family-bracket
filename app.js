@@ -1585,15 +1585,17 @@ function pickedBy(ev, slot) {
 // The projected path is computed live from the draw seeding.
 function playerModalHTML() {
   if (!state.playerModal) return '';
-  const { ev, slot, opp } = state.playerModal;
+  const { ev, slot, pair } = state.playerModal;
   const draw = DRAWS[ev];
   const p = draw && draw[slot];
   if (!p) return '';
-  // If opened from a matchup, offer a toggle to flip to the opponent's card.
-  const oppP = (opp !== null && opp !== undefined) ? draw[opp] : null;
-  const switcher = oppP ? `<div class="pm-switch">
-    <button class="pm-sw active">${flagImg(draw, slot)}<span>${esc(p.name)}</span></button>
-    <button class="pm-sw" data-action="info" data-ev="${ev}" data-slot="${opp}" data-opp="${slot}">${flagImg(draw, opp)}<span>${esc(oppP.name)}</span></button>
+  // If opened from a matchup, show a toggle between the two players. The pair is
+  // in a fixed order, so flipping only moves the highlight — names never swap.
+  const hasPair = pair && pair.length === 2 && pair[0] !== pair[1] && draw[pair[0]] && draw[pair[1]];
+  const switcher = hasPair ? `<div class="pm-switch">
+    ${pair.map(s => `<button class="pm-sw${s === slot ? ' active' : ''}"`
+      + (s === slot ? '' : ` data-action="info" data-ev="${ev}" data-slot="${s}" data-pair="${pair[0]},${pair[1]}"`)
+      + `>${flagImg(draw, s)}<span>${esc(draw[s].name)}</span></button>`).join('')}
   </div>` : '';
   const tour = ev === 'men' ? 'ATP' : 'WTA';
   const age = ageFromDob(p.dob);
@@ -1918,7 +1920,7 @@ function roundSeg(picks) {
 // `event` is the draw key ('men'/'women') so the ⓘ info button can open the
 // right player. The ⓘ is a SEPARATE button (sibling of the pick button) so it
 // still works when the pick button is disabled (locked / results view).
-function optBtn(draw, slot, r, m, picked, action, results, event, opp) {
+function optBtn(draw, slot, r, m, picked, action, results, event, pair) {
   const isPicked = picked !== null && picked === slot;
   const hasPlayer = slot !== null && slot !== undefined;
   const disabled = !hasPlayer || !action;
@@ -1933,11 +1935,11 @@ function optBtn(draw, slot, r, m, picked, action, results, event, opp) {
   const btn = `<button class="${cls}" ${disabled ? 'disabled' : ''}`
     + (action ? ` data-action="${action}" data-r="${r}" data-m="${m}" data-slot="${slot}"` : '')
     + `>${flagImg(draw, slot)}<span class="opt-name">${esc(label(draw, slot))}</span></button>`;
-  // Carry the opponent slot so the info card can offer a quick toggle between
-  // the two players in this matchup.
-  const oppAttr = (opp !== null && opp !== undefined) ? ` data-opp="${opp}"` : '';
+  // Carry both players of this matchup (in fixed order) so the info card can
+  // offer a toggle between them without the names ever swapping positions.
+  const pairAttr = pair ? ` data-pair="${pair[0]},${pair[1]}"` : '';
   const info = hasPlayer
-    ? `<button class="info-dot" data-action="info" data-ev="${event}" data-slot="${slot}"${oppAttr} aria-label="Player info" title="Player info">i</button>`
+    ? `<button class="info-dot" data-action="info" data-ev="${event}" data-slot="${slot}"${pairAttr} aria-label="Player info" title="Player info">i</button>`
     : '';
   return `<div class="optwrap">${btn}${info}</div>`;
 }
@@ -1973,10 +1975,13 @@ function matchArea(picks, event, r, action, results) {
 function flowMatch(picks, draw, event, r, m, action, results) {
   const c = contenders(picks, r, m);
   const picked = picks['r' + r][m];
+  // Both options share the same fixed-order pair so the info-card toggle keeps
+  // the two players in stable positions.
+  const pair = (c[0] !== null && c[0] !== undefined && c[1] !== null && c[1] !== undefined) ? [c[0], c[1]] : null;
   return `<div class="match">`
-    + optBtn(draw, c[0], r, m, picked, action, results, event, c[1])
+    + optBtn(draw, c[0], r, m, picked, action, results, event, pair)
     + `<span class="vs">VS</span>`
-    + optBtn(draw, c[1], r, m, picked, action, results, event, c[0])
+    + optBtn(draw, c[1], r, m, picked, action, results, event, pair)
     + `</div>`;
 }
 // Read-only preview of a next-round match (the two winners that flow in).
@@ -2326,8 +2331,8 @@ appEl.addEventListener('click', e => {
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
   else if (a === 'result') { doResult(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
   else if (a === 'info') {
-    const opp = el.dataset.opp != null && el.dataset.opp !== '' ? +el.dataset.opp : null;
-    state.playerModal = { ev: el.dataset.ev, slot: +el.dataset.slot, opp };
+    const pair = el.dataset.pair ? el.dataset.pair.split(',').map(Number) : null;
+    state.playerModal = { ev: el.dataset.ev, slot: +el.dataset.slot, pair };
     render();
   }
   else if (a === 'close-player') { state.playerModal = null; render(); }
