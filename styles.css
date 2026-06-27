@@ -23,7 +23,7 @@ html, body {
   font-size: 16px;
 }
 
-#app { max-width: 720px; margin: 0 auto; padding: 0 14px 64px;
+#app { max-width: 960px; margin: 0 auto; padding: 0 16px 64px;
   position: relative; z-index: 1; }
 
 /* ---- cascading tennis balls (decorative background) ---- */
@@ -90,8 +90,8 @@ header.app-head {
 
 nav.tabs { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
 nav.tabs button {
-  flex: 1; min-width: 96px;
-  padding: 9px 8px; border: 1px solid var(--line); background: var(--card);
+  flex: 1; min-width: 90px; white-space: nowrap;
+  padding: 9px 10px; border: 1px solid var(--line); background: var(--card);
   border-radius: 9px; font-size: 14px; cursor: pointer; color: var(--ink);
 }
 nav.tabs button.active {
@@ -224,6 +224,45 @@ button { font-family: inherit; }
     content: ""; flex: 1; height: 1px; background: var(--line);
   }
   .opt { min-height: 46px; }
+
+  /* ---- connected next-round flow (mobile bracket) ---- */
+  .flow-heads {
+    display: flex; justify-content: space-between; margin: 2px 4px 8px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+  }
+  .flow { display: flex; flex-direction: column; gap: 16px; }
+  .flowgroup { display: grid; grid-template-columns: 1fr 18px 0.74fr; align-items: center; }
+  .flowgroup .cur, .flowgroup .nxt { min-width: 0; }
+  .flowgroup .cur { display: flex; flex-direction: column; gap: 16px; }
+  .flowgroup .brace { position: relative; align-self: stretch; }
+  .flowgroup .brace::before {
+    content: ""; position: absolute; left: 0; right: 50%; top: 25%; bottom: 25%;
+    border: 2px solid var(--clay); border-left: none; border-radius: 0 9px 9px 0;
+  }
+  .flowgroup .brace::after {
+    content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 2px; background: var(--clay);
+  }
+  /* compact match cards inside the flow */
+  .flow .match { padding: 6px; gap: 4px; border-radius: 9px; }
+  .flow .match .mno { display: none; }
+  .flow .opt { min-height: 40px; font-size: 12px; }
+  .flow .info-dot { flex-basis: 26px; font-size: 13px; }
+  .flow .match .vs { font-size: 10px; letter-spacing: .5px; }
+  /* next-round preview */
+  .flow-next { border: 1px solid var(--line); border-radius: 9px; background: #faf8f4; overflow: hidden; }
+  .flow-next .fn-p { display: flex; align-items: center; gap: 5px; padding: 8px; font-size: 12px; min-height: 36px; }
+  .flow-next .fn-p + .fn-p { border-top: 1px solid var(--line); }
+  .flow-next .fn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flow-next .fn-p.tbd { color: var(--muted); }
+  .flow-next .flag { flex: 0 0 auto; }
+  /* champion node (final round) */
+  .flowgroup.final .brace::before { display: none; }
+  .champ-node {
+    background: linear-gradient(135deg, var(--gold), var(--clay)); color: #fff;
+    border-radius: 10px; padding: 12px 8px; text-align: center; font-weight: 800; font-size: 14px;
+  }
+  .champ-node .cn-name { margin-top: 2px; font-size: 13px; }
 }
 
 .pm-backdrop {

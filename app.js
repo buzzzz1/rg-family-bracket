@@ -1930,6 +1930,61 @@ function matchList(picks, event, r, action, results) {
   return html + '</div>';
 }
 
+// ---- connected "flow" bracket (mobile): current round → next round ----
+// Phones get a connected layout where each round's matches feed (via bracket
+// braces) into the next round's slots; desktop keeps the flat match list.
+function isMobileFlow() {
+  return typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(max-width: 600px)').matches;
+}
+function matchArea(picks, event, r, action, results) {
+  return isMobileFlow()
+    ? flowList(picks, event, r, action, results)
+    : matchList(picks, event, r, action, results);
+}
+// One current-round match: the two pickable options.
+function flowMatch(picks, draw, event, r, m, action, results) {
+  const c = contenders(picks, r, m);
+  const picked = picks['r' + r][m];
+  return `<div class="match">`
+    + optBtn(draw, c[0], r, m, picked, action, results, event)
+    + `<span class="vs">v</span>`
+    + optBtn(draw, c[1], r, m, picked, action, results, event)
+    + `</div>`;
+}
+// Read-only preview of a next-round match (the two winners that flow in).
+function flowNext(picks, draw, r, m) {
+  const c = contenders(picks, r, m);
+  const cell = (slot) => slot === null || slot === undefined
+    ? `<div class="fn-p tbd">TBD</div>`
+    : `<div class="fn-p">${flagImg(draw, slot)}<span class="fn-name">${esc(label(draw, slot))}</span></div>`;
+  return `<div class="flow-next">${cell(c[0])}${cell(c[1])}</div>`;
+}
+function flowList(picks, event, r, action, results) {
+  const draw = DRAWS[event];
+  // Final round → a single match flowing into the champion node.
+  if (r === 6) {
+    const champ = picks.r6[0];
+    return `<div class="flow"><div class="flowgroup final">
+      <div class="cur">${flowMatch(picks, draw, event, 6, 0, action, results)}</div>
+      <div class="brace"></div>
+      <div class="nxt"><div class="champ-node">🏆<div class="cn-name">${champ != null ? esc(label(draw, champ)) : 'Champion'}</div></div></div>
+    </div></div>`;
+  }
+  let html = `<div class="flow-heads"><span>${ROUND_NAMES[r]}</span><span>${ROUND_NAMES[r + 1]}</span></div><div class="flow">`;
+  for (let g = 0; g < ROUND_SIZES[r + 1]; g++) {
+    html += `<div class="flowgroup">
+      <div class="cur">
+        ${flowMatch(picks, draw, event, r, 2 * g, action, results)}
+        ${flowMatch(picks, draw, event, r, 2 * g + 1, action, results)}
+      </div>
+      <div class="brace"></div>
+      <div class="nxt">${flowNext(picks, draw, r + 1, g)}</div>
+    </div>`;
+  }
+  return html + '</div>';
+}
+
 function progress(picks) {
   const done = countDone(picks);
   const pct = Math.round((done / TOTAL_PICKS) * 100);
@@ -1967,7 +2022,7 @@ function bracketView() {
     html += `<div class="banner warn">Finish ${ROUND_NAMES[state.round - 1]} first — matches here fill in from those winners.</div>`;
   }
 
-  html += matchList(picks, state.event, state.round,
+  html += matchArea(picks, state.event, state.round,
     locked ? null : 'pick', showResults ? state.results[state.event] : null);
 
   if (state.round === 6) {
@@ -2045,7 +2100,7 @@ function entryView() {
   html += eventSeg();
   html += roundSeg(picks[ev]);
   html += `<h2 style="margin-top:12px">${ROUND_NAMES[state.round]} — ${EVENTS.find(x => x[0] === ev)[1]}</h2>`;
-  html += matchList(picks[ev], ev, state.round, null, showResults ? state.results[ev] : null);
+  html += matchArea(picks[ev], ev, state.round, null, showResults ? state.results[ev] : null);
   const champ = picks[ev].r6[0];
   html += `<div class="champion-box"><div class="lbl">Champion pick</div>
     <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${ev}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[ev], champ) + esc(label(DRAWS[ev], champ)) : '—'}</div></div>`;
@@ -2098,7 +2153,7 @@ function commissionerView() {
   html += eventSeg();
   html += roundSeg(picks);
   html += `<h2 style="margin-top:12px">${ROUND_NAMES[state.round]} — ${EVENTS.find(e => e[0] === state.event)[1]}</h2>`;
-  html += matchList(picks, state.event, state.round, 'result', null);
+  html += matchArea(picks, state.event, state.round, 'result', null);
   if (state.round === 6) {
     const champ = picks.r6[0];
     html += `<div class="champion-box"><div class="lbl">Champion</div>
@@ -2261,6 +2316,14 @@ appEl.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && state.playerModal) { state.playerModal = null; render(); }
+});
+
+// Re-render when crossing the mobile/desktop breakpoint so the bracket switches
+// between the connected flow (phone) and the flat list (desktop).
+let _wasMobileFlow = isMobileFlow();
+window.addEventListener('resize', () => {
+  const now = isMobileFlow();
+  if (now !== _wasMobileFlow) { _wasMobileFlow = now; if (state.ready) render(); }
 });
 
 // Swipe left/right to move the draw forward/back a round. Only active where the
