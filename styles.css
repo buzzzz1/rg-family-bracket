@@ -222,12 +222,19 @@ button { font-family: inherit; }
 .flowgroup .brace::after {
   content: ""; position: absolute; left: 50%; right: -1px; top: 50%; height: 2px; background: var(--clay);
 }
-/* current-round match becomes a horizontal head-to-head card on desktop */
+/* current-round match: the two options stacked with a "v" divider between */
 .flow .match {
-  display: grid; grid-template-columns: 1fr 22px 1fr; align-items: stretch; gap: 6px;
-  padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
 }
 .flow .match .mno { display: none; }
+.flow .match .vs {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+}
+.flow .match .vs::before, .flow .match .vs::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
 /* next-round preview */
 .flow-next { border: 1px solid var(--line); border-radius: 10px; background: #faf8f4; overflow: hidden; }
 .flow-next .fn-p { display: flex; align-items: center; gap: 7px; padding: 11px 12px; font-size: 14px; min-height: 46px; }
