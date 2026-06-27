@@ -285,10 +285,10 @@ button { font-family: inherit; }
   .flowgroup .cur { gap: 16px; }
   .flowgroup .brace::before { border-radius: 0 9px 9px 0; }
   /* stack the two options vertically inside each flow match on phones */
-  .flow .match { display: flex; flex-direction: column; padding: 7px; gap: 16px; border-radius: 10px; }
+  .flow .match { display: flex; flex-direction: column; padding: 7px; gap: 18px; border-radius: 10px; }
   .flow .opt { min-height: 40px; font-size: 12px; }
   .flow .info-dot { flex-basis: 26px; font-size: 13px; }
-  .flow .match .vs { width: 26px; height: 26px; font-size: 10px; }
+  .flow .match .vs { width: 22px; height: 22px; font-size: 9px; box-shadow: 0 0 0 2px var(--card); }
   .flow-next { border-radius: 9px; }
   .flow-next .fn-p { gap: 5px; padding: 8px; font-size: 12px; min-height: 36px; }
   .champ-node { border-radius: 10px; padding: 12px 8px; font-size: 14px; }
