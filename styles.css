@@ -315,6 +315,18 @@ button { font-family: inherit; }
   border: none; background: none; cursor: pointer;
   font-size: 24px; line-height: 1; color: var(--muted);
 }
+/* matchup toggle — flip between the two players in a match */
+.pm-switch { display: flex; gap: 6px; margin: 0 0 14px; padding-right: 26px; }
+.pm-sw {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--ink); cursor: pointer;
+}
+.pm-sw.active { background: var(--clay); color: #fff; border-color: var(--clay); }
+.pm-sw span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-sw .flag { margin: 0; flex: 0 0 auto; }
+
 .pm-head { display: flex; align-items: center; gap: 12px; margin: 2px 0 14px; }
 .pm-head .flag { width: 34px; height: 25px; margin: 0; }
 .pm-name { font-size: 20px; font-weight: 800; color: var(--ink); }
