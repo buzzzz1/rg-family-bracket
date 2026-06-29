@@ -1136,19 +1136,20 @@ function matchContenders(res, r, m) {
   return [res['r' + (r - 1)][2 * m], res['r' + (r - 1)][2 * m + 1]];
 }
 
-// Upcoming matchups (both players known, not yet played), ranked by star power.
+// Upcoming matchups in the round currently being played (both players known,
+// not yet played), ranked by star power. Restricted to a single round so the
+// list only ever shows "the next day's" matches (e.g. all R128 while in R128).
 function upcomingMatches(limit) {
+  const r = currentRoundIndex();
   const out = [];
   for (const ev of ['men', 'women']) {
     const draw = DRAWS[ev], res = state.results[ev];
-    for (let r = 0; r < 7; r++) {
-      for (let m = 0; m < ROUND_SIZES[r]; m++) {
-        if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
-        const [a, b] = matchContenders(res, r, m);
-        if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
-        const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
-        out.push({ ev, r, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
-      }
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
+      const [a, b] = matchContenders(res, r, m);
+      if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
+      const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
+      out.push({ ev, r, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
     }
   }
   return out.sort((x, y) => y.buzz - x.buzz).slice(0, limit);
@@ -1205,13 +1206,16 @@ function dailyRecapView() {
   raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name))
     .forEach((e, i) => { prevRank[e.id] = i + 1; });
   const medals = ['🥇', '🥈', '🥉'];
-  html += `<div class="panel"><h2>Leaders</h2><div class="day-podium">`;
+  const moveChip = (id, rank) => {
+    const delta = prevRank[id] - rank;
+    if (delta > 0) return `<span class="up">▲${delta}</span>`;
+    if (delta < 0) return `<span class="down">▼${-delta}</span>`;
+    return '';
+  };
+  const todayChip = (e) => e.today > 0 ? `<span class="dp-today">+${e.today.toLocaleString()}</span>` : '';
+  html += `<div class="panel"><h2>🏅 Leaders</h2><div class="day-podium">`;
   raw.slice(0, 3).forEach((e, i) => {
-    const delta = prevRank[e.id] - (i + 1);
-    let move = '';
-    if (delta > 0) move = `<span class="up">▲${delta}</span>`;
-    else if (delta < 0) move = `<span class="down">▼${-delta}</span>`;
-    const today = e.today > 0 ? `<span class="dp-today">+${e.today.toLocaleString()}</span>` : '';
+    const move = moveChip(e.id, i + 1), today = todayChip(e);
     html += `<div class="dp-card${i === 0 ? ' first' : ''}">
       <div class="dp-medal">${medals[i]}</div>
       <div class="dp-name">${esc(e.name)}</div>
@@ -1219,7 +1223,22 @@ function dailyRecapView() {
       <div class="dp-move">${move}${move && today ? ' ' : ''}${today}</div>
     </div>`;
   });
-  html += `</div></div>`;
+  html += `</div>`;
+  if (raw.length > 3) {
+    html += `<div class="day-rest">`;
+    raw.slice(3).forEach((e, idx) => {
+      const rank = idx + 4;
+      const move = moveChip(e.id, rank), today = todayChip(e);
+      html += `<div class="rest-row">
+        <span class="rr-rank">${rank}</span>
+        <span class="rr-name">${esc(e.name)}</span>
+        <span class="rr-chips">${move}${today}</span>
+        <span class="rr-pts">${e.total.toLocaleString()}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
 
   // Daily highlights (diff since the last recap snapshot)
   html += `<div class="panel"><h2>⚡ Daily Highlights</h2>`;
@@ -1275,21 +1294,17 @@ function dailyRecapView() {
       if (fam.total > 0) {
         const pct = Math.round(fam.correct / fam.total * 100);
         html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
-        const evL = (ev) => ev === 'men' ? 'M' : 'W';
-        const uList = (items, render) => `<ul class="dr-ul">${items.map(render).join('')}</ul>`;
+        // Both columns use the same "Winner def. Loser" format. (For misses the
+        // loser is the player everyone picked.)
+        const defLine = (u) => `${esc(DRAWS[u.event][u.winner].name)} def. ${esc(DRAWS[u.event][u.loser].name)}`;
+        const uCol = (items) => items.length
+          ? `<ul class="dr-ul">${items.map(u => `<li>${defLine(u)}</li>`).join('')}</ul>`
+          : `<p class="dr-uempty">—</p>`;
         if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
-          html += `<div class="dr-unan">`;
-          if (fam.unanimousCorrect.length) {
-            html += `<div class="dr-ublock right"><div class="dr-uhead">✅ We all nailed it</div>`
-              + uList(fam.unanimousCorrect, u => `<li>${evL(u.event)} ${ROUND_SHORT[u.r]} · ${esc(DRAWS[u.event][u.winner].name)}</li>`)
-              + `</div>`;
-          }
-          if (fam.unanimousWrong.length) {
-            html += `<div class="dr-ublock wrong"><div class="dr-uhead">❌ We all missed</div>`
-              + uList(fam.unanimousWrong, u => `<li>${evL(u.event)} ${ROUND_SHORT[u.r]} · picked ${esc(DRAWS[u.event][u.familyPick].name)}, ${esc(DRAWS[u.event][u.winner].name)} won</li>`)
-              + `</div>`;
-          }
-          html += `</div>`;
+          html += `<div class="dr-unan2">
+            <div class="dr-ublock right"><div class="dr-uhead">✅ We all nailed it</div>${uCol(fam.unanimousCorrect)}</div>
+            <div class="dr-ublock wrong"><div class="dr-uhead">❌ We all missed</div>${uCol(fam.unanimousWrong)}</div>
+          </div>`;
         }
       }
     }
@@ -1297,7 +1312,7 @@ function dailyRecapView() {
   html += `</div>`;
 
   // Matches to watch — the next marquee matchups still to be played.
-  const watch = upcomingMatches(8);
+  const watch = upcomingMatches(10);
   if (watch.length) {
     html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
     watch.forEach(w => {

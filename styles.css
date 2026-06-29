@@ -402,6 +402,17 @@ button { font-family: inherit; }
 .dp-move .down { color: #b23b3b; }
 .dp-today { color: var(--court); }
 
+/* ranks 4-6 under the podium */
+.day-rest { margin-top: 10px; display: flex; flex-direction: column; }
+.rest-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-top: 1px solid var(--line); font-size: 14px; }
+.rr-rank { flex: 0 0 22px; text-align: center; font-weight: 700; color: var(--muted); }
+.rr-name { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-chips { flex: 0 0 auto; display: flex; gap: 6px; font-size: 12px; font-weight: 700; }
+.rr-chips .up { color: var(--court); }
+.rr-chips .down { color: #b23b3b; }
+.rr-chips .dp-today { color: var(--court); }
+.rr-pts { flex: 0 0 auto; font-weight: 800; color: var(--clay-dark); font-variant-numeric: tabular-nums; }
+
 /* matches to watch */
 .watch-list { display: flex; flex-direction: column; }
 .watch-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -421,14 +432,15 @@ button { font-family: inherit; }
 .fs-name { font-weight: 600; color: var(--ink); }
 .fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
-/* unanimous right / wrong lists under "Family today" */
-.dr-unan { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 2px 26px; }
-.dr-ublock { border-left: 3px solid var(--line); padding-left: 10px; }
+/* unanimous right / wrong — two columns under "Family today" */
+.dr-unan2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 2px 26px; }
+.dr-ublock { border-left: 3px solid var(--line); padding-left: 10px; min-width: 0; }
 .dr-ublock.right { border-color: var(--court); }
 .dr-ublock.wrong { border-color: #b23b3b; }
-.dr-uhead { font-size: 12px; font-weight: 700; color: var(--clay-dark); margin-bottom: 2px; }
+.dr-uhead { font-size: 12px; font-weight: 700; color: var(--clay-dark); margin-bottom: 3px; }
 .dr-ul { list-style: none; margin: 0; padding: 0; }
 .dr-ul li { font-size: 13px; color: var(--ink); padding: 2px 0; }
+.dr-uempty { color: var(--muted); font-size: 13px; margin: 0; }
 
 .dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .dr-beat:first-child { border-top: none; }
