@@ -417,10 +417,21 @@ button { font-family: inherit; }
 .watch-list { display: flex; flex-direction: column; }
 .watch-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .watch-row:first-child { border-top: none; }
-.w-ev { flex: 0 0 46px; font-size: 11px; font-weight: 700; color: var(--clay); }
+.w-ev { flex: 0 0 46px; font-size: 11px; font-weight: 700; color: var(--clay); padding-top: 1px; }
+.w-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .w-match { min-width: 0; color: var(--ink); }
 .w-match .flag { width: 16px; height: 12px; margin: 0 4px 0 0; }
 .w-v { color: var(--muted); font-size: 12px; margin: 0 2px; }
+.w-note { font-size: 12px; color: var(--muted); }
+
+/* fallen-seeds 1-32 seed map */
+.seed-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.seed-chip {
+  flex: 0 0 auto; min-width: 20px; text-align: center; padding: 2px 3px;
+  font-size: 11px; font-weight: 700; border-radius: 4px;
+  background: var(--clay); color: #fff;
+}
+.seed-chip.out { background: #ece8f1; color: #b9b2c6; text-decoration: line-through; }
 
 /* fallen seeds — two columns (men / women) */
 .fallen2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -433,7 +444,7 @@ button { font-family: inherit; }
 .fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
 /* unanimous right / wrong — two columns under "Family today" */
-.dr-unan2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 2px 26px; }
+.dr-unan2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 2px 26px; align-items: start; }
 .dr-ublock { border-left: 3px solid var(--line); padding-left: 10px; min-width: 0; }
 .dr-ublock.right { border-color: var(--court); }
 .dr-ublock.wrong { border-color: #b23b3b; }
