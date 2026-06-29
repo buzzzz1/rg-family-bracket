@@ -398,31 +398,25 @@ button { font-family: inherit; }
 .dp-name { font-weight: 800; font-size: 14px; margin-top: 4px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dp-pts { font-weight: 800; font-size: 15px; color: var(--clay-dark); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .dp-move { font-size: 11px; font-weight: 700; margin-top: 3px; min-height: 14px; }
-.dp-move .up { color: var(--court); }
-.dp-move .down { color: #b23b3b; }
-.dp-today { color: var(--court); }
+.dp-rank {
+  width: 24px; height: 24px; margin: 0 auto; border-radius: 50%;
+  background: #efeaf6; color: var(--clay-dark); font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dp-perf { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.dp-perf .dp-pp { color: var(--court); font-weight: 700; }
+.day-podium { row-gap: 8px; }
 
-/* ranks 4-6 under the podium */
-.day-rest { margin-top: 10px; display: flex; flex-direction: column; }
-.rest-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-top: 1px solid var(--line); font-size: 14px; }
-.rr-rank { flex: 0 0 22px; text-align: center; font-weight: 700; color: var(--muted); }
-.rr-name { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rr-chips { flex: 0 0 auto; display: flex; gap: 6px; font-size: 12px; font-weight: 700; }
-.rr-chips .up { color: var(--court); }
-.rr-chips .down { color: #b23b3b; }
-.rr-chips .dp-today { color: var(--court); }
-.rr-pts { flex: 0 0 auto; font-weight: 800; color: var(--clay-dark); font-variant-numeric: tabular-nums; }
-
-/* matches to watch */
+/* matches to watch — match on the left, description on the right */
 .watch-list { display: flex; flex-direction: column; }
-.watch-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.watch-row { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 12px; align-items: start; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .watch-row:first-child { border-top: none; }
-.w-ev { flex: 0 0 46px; font-size: 11px; font-weight: 700; color: var(--clay); padding-top: 1px; }
-.w-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.w-match { min-width: 0; color: var(--ink); }
-.w-match .flag { width: 16px; height: 12px; margin: 0 4px 0 0; }
-.w-v { color: var(--muted); font-size: 12px; margin: 0 2px; }
-.w-note { font-size: 12px; color: var(--muted); }
+.w-left { min-width: 0; }
+.w-ev { font-size: 11px; font-weight: 700; color: var(--clay); margin-bottom: 2px; }
+.w-match { min-width: 0; color: var(--ink); font-size: 13px; }
+.w-match .flag { width: 15px; height: 11px; margin: 0 3px 0 0; }
+.w-v { color: var(--muted); font-size: 11px; margin: 0 2px; }
+.w-note { min-width: 0; font-size: 12px; color: var(--muted); }
 
 /* fallen-seeds 1-32 seed map */
 .seed-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
