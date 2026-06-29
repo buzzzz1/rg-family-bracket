@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260629-2300';
+import { DRAWS } from './draws.js?v=20260630-0100';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1139,11 +1139,11 @@ function matchContenders(res, r, m) {
 // Upcoming matchups in the round currently being played (both players known,
 // not yet played), ranked by star power. Restricted to a single round so the
 // list only ever shows "the next day's" matches (e.g. all R128 while in R128).
-function upcomingMatches(limit) {
+// Returns the top `perEvent` men's matches first, then the top women's.
+function upcomingMatches(perEvent) {
   const r = currentRoundIndex();
-  const out = [];
-  for (const ev of ['men', 'women']) {
-    const draw = DRAWS[ev], res = state.results[ev];
+  const pick = (ev) => {
+    const draw = DRAWS[ev], res = state.results[ev], out = [];
     for (let m = 0; m < ROUND_SIZES[r]; m++) {
       if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
       const [a, b] = matchContenders(res, r, m);
@@ -1151,8 +1151,9 @@ function upcomingMatches(limit) {
       const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
       out.push({ ev, r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
     }
-  }
-  return out.sort((x, y) => y.buzz - x.buzz).slice(0, limit);
+    return out.sort((x, y) => y.buzz - x.buzz).slice(0, perEvent);
+  };
+  return [...pick('men'), ...pick('women')];
 }
 
 // "A", "A & B", "A, B & C"
@@ -1217,9 +1218,18 @@ function dailyRecapView() {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Leaders — a compact top-three podium (the full ranking lives on the
-  // Leaderboard tab), with each leader's movement and points gained today.
-  // Ties share a rank/medal (standard "1-1-3" competition ranking).
+  // Today's deltas since the last recap snapshot — shared by Leaders + Highlights.
+  const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
+  const todayAll = [...diffTodayMatches(state.results.men, snap.men, 'men'),
+                    ...diffTodayMatches(state.results.women, snap.women, 'women')];
+  const todayPoints = {}, todayCorrect = {};
+  raw.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
+  for (const t of todayAll) for (const e of raw) {
+    if (e[t.event]['r' + t.r][t.m] === t.winner) { todayPoints[e.id] += ROUND_POINTS[t.r]; todayCorrect[e.id]++; }
+  }
+
+  // Leaders — all six on a 3-up grid. Ties share a rank/medal (standard "1-1-3"
+  // competition ranking). Each card shows points gained + picks correct today.
   const ranks = raw.map(() => 0);
   raw.forEach((e, i) => { ranks[i] = (i > 0 && e.total === raw[i - 1].total) ? ranks[i - 1] : i + 1; });
   const prevSorted = raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name));
@@ -1228,107 +1238,79 @@ function dailyRecapView() {
     prevRank[e.id] = (i > 0 && e.prev === prevSorted[i - 1].prev) ? prevRank[prevSorted[i - 1].id] : i + 1;
   });
   const medals = ['🥇', '🥈', '🥉'];
-  const medalFor = (rank) => rank <= 3 ? medals[rank - 1] : rank;
-  const moveChip = (id, rank) => {
-    const delta = prevRank[id] - rank;
-    if (delta > 0) return `<span class="up">▲${delta}</span>`;
-    if (delta < 0) return `<span class="down">▼${-delta}</span>`;
-    return '';
-  };
-  const todayChip = (e) => e.today > 0 ? `<span class="dp-today">+${e.today.toLocaleString()}</span>` : '';
-  html += `<div class="panel"><h2>🏅 Leaders</h2><div class="day-podium">`;
-  raw.slice(0, 3).forEach((e, i) => {
-    const move = moveChip(e.id, ranks[i]), today = todayChip(e);
-    html += `<div class="dp-card${ranks[i] === 1 ? ' first' : ''}">
-      <div class="dp-medal">${medalFor(ranks[i])}</div>
+  const leaderCard = (e, i) => {
+    const rank = ranks[i];
+    const badge = rank <= 3 ? `<div class="dp-medal">${medals[rank - 1]}</div>` : `<div class="dp-rank">${rank}</div>`;
+    const perf = todayAll.length
+      ? `<div class="dp-perf"><span class="dp-pp">+${todayPoints[e.id].toLocaleString()}</span> · ${todayCorrect[e.id]}/${todayAll.length} correct</div>`
+      : '';
+    return `<div class="dp-card${rank === 1 ? ' first' : ''}">${badge}
       <div class="dp-name">${esc(e.name)}</div>
-      <div class="dp-pts">${e.total.toLocaleString()}</div>
-      <div class="dp-move">${move}${move && today ? ' ' : ''}${today}</div>
-    </div>`;
-  });
-  html += `</div>`;
-  if (raw.length > 3) {
-    html += `<div class="day-rest">`;
-    raw.slice(3).forEach((e, idx) => {
-      const i = idx + 3;
-      const move = moveChip(e.id, ranks[i]), today = todayChip(e);
-      html += `<div class="rest-row">
-        <span class="rr-rank">${ranks[i]}</span>
-        <span class="rr-name">${esc(e.name)}</span>
-        <span class="rr-chips">${move}${today}</span>
-        <span class="rr-pts">${e.total.toLocaleString()}</span>
-      </div>`;
-    });
-    html += `</div>`;
-  }
-  html += `</div>`;
+      <div class="dp-pts">${e.total.toLocaleString()}</div>${perf}</div>`;
+  };
+  html += `<div class="panel"><h2>🏅 Leaders</h2><div class="day-podium">${raw.map((e, i) => leaderCard(e, i)).join('')}</div></div>`;
 
-  // Daily highlights (diff since the last recap snapshot)
+  // Daily highlights
   html += `<div class="panel"><h2>⚡ Daily Highlights</h2>`;
   if (!hasResults()) {
     html += `<p class="muted">The tournament hasn't started yet — daily highlights will appear here as results come in.</p>`;
+  } else if (todayAll.length === 0) {
+    html += `<p class="muted">No new results since the last update.</p>`;
   } else {
-    const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
-    const todayAll = [...diffTodayMatches(state.results.men, snap.men, 'men'),
-                      ...diffTodayMatches(state.results.women, snap.women, 'women')];
-    if (todayAll.length === 0) {
-      html += `<p class="muted">No new results since the last update.</p>`;
-    } else {
-      const todayPoints = {}, todayCorrect = {};
-      raw.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
-      for (const t of todayAll) for (const e of raw) {
-        if (e[t.event]['r' + t.r][t.m] === t.winner) { todayPoints[e.id] += ROUND_POINTS[t.r]; todayCorrect[e.id]++; }
-      }
-      const beat = (icon, label, val) => `<div class="dr-beat"><span class="dr-ic">${icon}</span><span class="dr-tx"><strong>${label}</strong> ${val}</span></div>`;
+    const beat = (icon, label, val) => `<div class="dr-beat"><span class="dr-ic">${icon}</span><span class="dr-tx"><strong>${label}</strong> ${val}</span></div>`;
 
-      const maxToday = Math.max(0, ...raw.map(e => todayPoints[e.id]));
-      const movers = raw.filter(e => todayPoints[e.id] === maxToday).map(e => e.name);
-      if (maxToday > 0) {
-        html += beat('📈', 'Mover today:', `${esc(nameList(movers))} +${maxToday.toLocaleString()}`);
-      }
-      const maxCorrect = Math.max(0, ...raw.map(e => todayCorrect[e.id]));
-      if (maxCorrect > 0) {
-        const tops = raw.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
-        const same = maxToday > 0 && tops.length === movers.length && tops.every(n => movers.includes(n));
-        if (!same) html += beat('🎯', 'Best record today:', `${esc(nameList(tops))} (${maxCorrect}/${todayAll.length})`);
-      }
-      const todayUpsets = todayAll.map(t => {
-        const draw = DRAWS[t.event];
-        const ws = draw[t.winner].seed || 99, ls = draw[t.loser].seed || 99;
-        const gap = ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls));
-        return { ...t, gap };
-      }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
-      if (todayUpsets.length) {
-        const top = todayUpsets[0], draw = DRAWS[top.event];
-        const whoHad = raw.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
-        const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
-          : whoHad.length === 1 ? `only ${whoHad[0]} had it` : `${whoHad.length} of you had it`;
-        html += beat('😱', 'Upset of the day:', `${esc(recapName(draw, top.winner))} d. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
-      }
-      const champLosses = [];
-      for (const e of raw) {
-        const mch = e.men.r6[0], wch = e.women.r6[0];
-        if (mch !== null && isAlive(mch, snap.men) && !isAlive(mch, state.results.men)) champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
-        if (wch !== null && isAlive(wch, snap.women) && !isAlive(wch, state.results.women)) champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
-      }
-      if (champLosses.length) html += beat('💀', 'Champion pick down:', esc(champLosses.join('; ')));
+    // Most points today (with the leader's correct-pick count when it's one person).
+    const maxToday = Math.max(0, ...raw.map(e => todayPoints[e.id]));
+    if (maxToday > 0) {
+      const top = raw.filter(e => todayPoints[e.id] === maxToday);
+      const picks = top.length === 1 ? ` (${todayCorrect[top[0].id]}/${todayAll.length} correct)` : '';
+      html += beat('📈', 'Most points today:', `${esc(nameList(top.map(e => e.name)))} +${maxToday.toLocaleString()}${picks}`);
+    }
+    // Mover of the day = biggest climb in the standings.
+    const climb = {};
+    raw.forEach((e, i) => { climb[e.id] = prevRank[e.id] - ranks[i]; });
+    const maxClimb = Math.max(0, ...raw.map(e => climb[e.id]));
+    if (maxClimb > 0) {
+      const climbers = raw.filter(e => climb[e.id] === maxClimb).map(e => e.name);
+      html += beat('🧗', 'Mover of the day:', `${esc(nameList(climbers))} — up ${maxClimb} ${maxClimb === 1 ? 'place' : 'places'}`);
+    }
+    // Upset of the day.
+    const todayUpsets = todayAll.map(t => {
+      const draw = DRAWS[t.event];
+      const ws = draw[t.winner].seed || 99, ls = draw[t.loser].seed || 99;
+      const gap = ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls));
+      return { ...t, gap };
+    }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
+    if (todayUpsets.length) {
+      const top = todayUpsets[0], draw = DRAWS[top.event];
+      const whoHad = raw.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
+      const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
+        : whoHad.length === 1 ? `only ${whoHad[0]} had it` : `${whoHad.length} of you had it`;
+      html += beat('😱', 'Upset of the day:', `${esc(recapName(draw, top.winner))} def. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
+    }
+    // Champion picks knocked out today.
+    const champLosses = [];
+    for (const e of raw) {
+      const mch = e.men.r6[0], wch = e.women.r6[0];
+      if (mch !== null && isAlive(mch, snap.men) && !isAlive(mch, state.results.men)) champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
+      if (wch !== null && isAlive(wch, snap.women) && !isAlive(wch, state.results.women)) champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
+    }
+    if (champLosses.length) html += beat('💀', 'Champion pick down:', esc(champLosses.join('; ')));
 
-      const fam = familyStats(raw, todayAll);
-      if (fam.total > 0) {
-        const pct = Math.round(fam.correct / fam.total * 100);
-        html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
-        // Both columns use the same "Winner def. Loser" format. (For misses the
-        // loser is the player everyone picked.)
-        const defLine = (u) => `${esc(DRAWS[u.event][u.winner].name)} def. ${esc(DRAWS[u.event][u.loser].name)}`;
-        const uCol = (items) => items.length
-          ? `<ul class="dr-ul">${items.map(u => `<li>${defLine(u)}</li>`).join('')}</ul>`
-          : `<p class="dr-uempty">—</p>`;
-        if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
-          html += `<div class="dr-unan2">
-            <div class="dr-ublock right"><div class="dr-uhead">✅ We all nailed it</div>${uCol(fam.unanimousCorrect)}</div>
-            <div class="dr-ublock wrong"><div class="dr-uhead">❌ We all missed</div>${uCol(fam.unanimousWrong)}</div>
-          </div>`;
-        }
+    // Family scorecard + unanimous calls (same "Winner def. Loser" format).
+    const fam = familyStats(raw, todayAll);
+    if (fam.total > 0) {
+      const pct = Math.round(fam.correct / fam.total * 100);
+      html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
+      const defLine = (u) => `${esc(DRAWS[u.event][u.winner].name)} def. ${esc(DRAWS[u.event][u.loser].name)}`;
+      const uCol = (items) => items.length
+        ? `<ul class="dr-ul">${items.map(u => `<li>${defLine(u)}</li>`).join('')}</ul>`
+        : `<p class="dr-uempty">—</p>`;
+      if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
+        html += `<div class="dr-unan2">
+          <div class="dr-ublock right"><div class="dr-uhead">✅ We all nailed it</div>${uCol(fam.unanimousCorrect)}</div>
+          <div class="dr-ublock wrong"><div class="dr-uhead">❌ We all missed</div>${uCol(fam.unanimousWrong)}</div>
+        </div>`;
       }
     }
   }
@@ -1336,6 +1318,12 @@ function dailyRecapView() {
 
   // Matches to watch — the next marquee matchups still to be played, each with a
   // one-line hook (a family member's title pick, or how the pool split on it).
+  // Deepest round any picker has a player reaching (for the "advancing" detail).
+  const deepestPick = (e, ev, slot) => {
+    let d = -1;
+    for (let rr = 0; rr < 7; rr++) if (e[ev]['r' + rr][matchOfSlot(slot, rr)] === slot) d = rr;
+    return d;
+  };
   const watchNote = (ev, r, m, a, b) => {
     const draw = DRAWS[ev];
     const champFans = (slot) => raw.filter(e => e[ev].r6[0] === slot).map(e => e.name);
@@ -1350,21 +1338,29 @@ function dailyRecapView() {
     for (const e of raw) { const p = e[ev]['r' + r][m]; if (p === a) pa++; else if (p === b) pb++; }
     const N = pa + pb;
     if (N === 0) return 'Nobody in the pool has a call on this one.';
-    if (pa === 0 || pb === 0) return `All ${N} brackets have ${esc(draw[pa > 0 ? a : b].name)} advancing.`;
+    if (pa === 0 || pb === 0) {
+      const fav = pa > 0 ? a : b;
+      const pickers = raw.filter(e => e[ev]['r' + r][m] === fav);
+      const depths = pickers.map(e => deepestPick(e, ev, fav));
+      const maxD = Math.max(...depths);
+      const k = depths.filter(d => d === maxD).length;
+      const far = maxD === 6 ? 'lifting the trophy' : `the ${ROUND_NAMES[maxD]}`;
+      return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${k === N ? 'all of them' : `${k} of them`} as far as ${far}.`;
+    }
     if (pa === pb) return `A pool coin-flip — split ${pa}–${pb}.`;
     return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
   };
-  const watch = upcomingMatches(10);
+  const watch = upcomingMatches(5);
   if (watch.length) {
     html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
-        <span class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span>
-        <span class="w-body">
-          <span class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</span>
-          <span class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</span>
-        </span>
+        <div class="w-left">
+          <div class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</div>
+          <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
+        </div>
+        <div class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</div>
       </div>`;
     });
     html += `</div></div>`;
