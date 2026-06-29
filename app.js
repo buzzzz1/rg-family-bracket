@@ -1109,13 +1109,76 @@ function recapView() {
   return renderFinalRecapHTML(computeFinalRecap(rawEntries));
 }
 
+// The earliest round that still has an undecided match (across both draws) —
+// i.e. the round currently being played.
+function currentRoundIndex() {
+  for (let r = 0; r < 7; r++) {
+    for (const ev of ['men', 'women']) {
+      const res = state.results[ev]['r' + r];
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (res[m] === null || res[m] === undefined) return r;
+      }
+    }
+  }
+  return 6;
+}
+
+// Marquee value of a slot: a lower seed = a bigger name. Unseeded = 0.
+function slotBuzz(draw, slot) {
+  if (slot === null || slot === undefined) return 0;
+  const s = draw[slot] && draw[slot].seed;
+  return s ? (33 - s) : 0;
+}
+
+// The two contenders of a match (fixed for R1, otherwise the prior round's winners).
+function matchContenders(res, r, m) {
+  if (r === 0) return [2 * m, 2 * m + 1];
+  return [res['r' + (r - 1)][2 * m], res['r' + (r - 1)][2 * m + 1]];
+}
+
+// Upcoming matchups (both players known, not yet played), ranked by star power.
+function upcomingMatches(limit) {
+  const out = [];
+  for (const ev of ['men', 'women']) {
+    const draw = DRAWS[ev], res = state.results[ev];
+    for (let r = 0; r < 7; r++) {
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
+        const [a, b] = matchContenders(res, r, m);
+        if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
+        const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
+        out.push({ ev, r, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
+      }
+    }
+  }
+  return out.sort((x, y) => y.buzz - x.buzz).slice(0, limit);
+}
+
+// Seeded players already knocked out, with the round and who beat them.
+function fallenSeeds(ev) {
+  const draw = DRAWS[ev], res = state.results[ev], out = [];
+  for (let r = 0; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = res['r' + r][m];
+      if (w === null || w === undefined) continue;
+      const [a, b] = matchContenders(res, r, m);
+      if (a === null || a === undefined || b === null || b === undefined) continue;
+      const loser = w === a ? b : a;
+      const lp = draw[loser];
+      if (lp && lp.seed) out.push({ seed: lp.seed, name: lp.name, r, by: draw[w].name });
+    }
+  }
+  return out.sort((x, y) => x.seed - y.seed);
+}
+
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
 // Same beats as the shareable text recap (generateRecapText), rendered as a page.
 function dailyRecapView() {
   const { dayNum, dateStr } = tournamentDay();
-  const dayLine = dayNum < 1 ? 'Before the first ball' : `Day ${dayNum} of the Championships`;
+  const cr = currentRoundIndex();
+  const dayPart = dayNum < 1 ? 'Warm-up' : `Day ${dayNum}`;
   let html = `<div class="daily-head">
-    <div class="dh-day">${esc(dayLine)}</div>
+    <div class="dh-day">${esc(dayPart)} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[cr])}</div>
     <div class="dh-date">${esc(dateStr)}</div>
   </div>`;
 
@@ -1136,36 +1199,30 @@ function dailyRecapView() {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Standings — rank movement since the last update, points gained today, and a
-  // bar showing each bracket's total relative to the leader.
+  // Leaders — a compact top-three podium (the full ranking lives on the
+  // Leaderboard tab), with each leader's movement and points gained today.
   const prevRank = {};
   raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name))
     .forEach((e, i) => { prevRank[e.id] = i + 1; });
-  const leaderTotal = raw[0].total;
   const medals = ['🥇', '🥈', '🥉'];
-  html += `<div class="panel"><h2>Standings</h2><div class="stand">`;
-  raw.forEach((e, i) => {
-    const rank = i + 1;
-    const delta = prevRank[e.id] - rank;
+  html += `<div class="panel"><h2>Leaders</h2><div class="day-podium">`;
+  raw.slice(0, 3).forEach((e, i) => {
+    const delta = prevRank[e.id] - (i + 1);
     let move = '';
-    if (delta > 0) move = `<span class="st-move up">▲${delta}</span>`;
-    else if (delta < 0) move = `<span class="st-move down">▼${-delta}</span>`;
-    const today = e.today > 0 ? `<span class="st-today">+${e.today.toLocaleString()}</span>` : '';
-    const pct = leaderTotal > 0 ? Math.round(e.total / leaderTotal * 100) : 0;
-    html += `<div class="stand-row${rank === 1 ? ' leader' : ''}">
-      <div class="st-line">
-        <span class="st-rank">${rank <= 3 ? medals[i] : rank}</span>
-        <span class="st-name">${esc(e.name)}</span>
-        ${move}${today}
-        <span class="st-pts">${e.total.toLocaleString()}</span>
-      </div>
-      <div class="st-track"><div class="st-fill" style="width:${pct}%"></div></div>
+    if (delta > 0) move = `<span class="up">▲${delta}</span>`;
+    else if (delta < 0) move = `<span class="down">▼${-delta}</span>`;
+    const today = e.today > 0 ? `<span class="dp-today">+${e.today.toLocaleString()}</span>` : '';
+    html += `<div class="dp-card${i === 0 ? ' first' : ''}">
+      <div class="dp-medal">${medals[i]}</div>
+      <div class="dp-name">${esc(e.name)}</div>
+      <div class="dp-pts">${e.total.toLocaleString()}</div>
+      <div class="dp-move">${move}${move && today ? ' ' : ''}${today}</div>
     </div>`;
   });
   html += `</div></div>`;
 
-  // Today's beats (diff since the last recap snapshot)
-  html += `<div class="panel"><h2>📅 ${esc(dateStr)}</h2>`;
+  // Daily highlights (diff since the last recap snapshot)
+  html += `<div class="panel"><h2>⚡ Daily Highlights</h2>`;
   if (!hasResults()) {
     html += `<p class="muted">The tournament hasn't started yet — daily highlights will appear here as results come in.</p>`;
   } else {
@@ -1238,6 +1295,30 @@ function dailyRecapView() {
     }
   }
   html += `</div>`;
+
+  // Matches to watch — the next marquee matchups still to be played.
+  const watch = upcomingMatches(8);
+  if (watch.length) {
+    html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
+    watch.forEach(w => {
+      const draw = DRAWS[w.ev];
+      html += `<div class="watch-row">
+        <span class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span>
+        <span class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Fallen seeds — seeded players already knocked out, men vs women.
+  const fcol = (items) => items.length
+    ? `<ul class="fs-list">${items.map(s =>
+        `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">${ROUND_SHORT[s.r]} · lost to ${esc(s.by)}</span></li>`).join('')}</ul>`
+    : `<p class="muted small" style="margin:0">None yet.</p>`;
+  html += `<div class="panel"><h2>📉 Fallen Seeds</h2><div class="fallen2">
+    <div class="fallen-col"><div class="fc-head">Men</div>${fcol(fallenSeeds('men'))}</div>
+    <div class="fallen-col"><div class="fc-head">Women</div>${fcol(fallenSeeds('women'))}</div>
+  </div></div>`;
 
   // Champions still alive
   html += `<div class="panel"><h2>🏆 Champions still alive</h2><div class="dr-champs">`;

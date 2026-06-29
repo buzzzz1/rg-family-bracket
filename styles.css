@@ -386,24 +386,40 @@ button { font-family: inherit; }
 
 /* ---- daily recap page ---- */
 .daily-head { text-align: center; margin: 6px 0 14px; }
-.daily-head .dh-day { font-family: 'Young Serif', Georgia, serif; font-size: 25px; color: var(--clay-dark); line-height: 1.1; }
+.daily-head .dh-day { font-family: 'Young Serif', Georgia, serif; font-size: 24px; color: var(--clay-dark); line-height: 1.1; }
+.daily-head .dh-sep { color: var(--muted); font-weight: 400; margin: 0 2px; }
 .daily-head .dh-date { color: var(--muted); font-size: 14px; margin-top: 3px; }
 
-/* standings list with movement, today's gain and a leader-relative bar */
-.stand { display: flex; flex-direction: column; gap: 10px; }
-.stand-row { display: flex; flex-direction: column; gap: 5px; }
-.st-line { display: flex; align-items: center; gap: 8px; }
-.st-rank { flex: 0 0 26px; text-align: center; font-weight: 700; font-size: 15px; color: var(--muted); }
-.st-name { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stand-row.leader .st-name { color: var(--clay-dark); }
-.st-move { flex: 0 0 auto; font-size: 12px; font-weight: 700; }
-.st-move.up { color: var(--court); }
-.st-move.down { color: #b23b3b; }
-.st-today { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--court); }
-.st-pts { flex: 0 0 auto; font-weight: 800; color: var(--clay-dark); font-variant-numeric: tabular-nums; }
-.st-track { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.st-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--clay), var(--clay-dark)); transition: width .3s; }
-.stand-row.leader .st-fill { background: linear-gradient(90deg, var(--gold), var(--clay)); }
+/* leaders — compact top-three podium */
+.day-podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dp-card { text-align: center; border: 1px solid var(--line); border-radius: 12px; padding: 12px 6px; background: var(--card); }
+.dp-card.first { background: linear-gradient(160deg, #fffdf5, #f7eccf); border-color: var(--gold); }
+.dp-medal { font-size: 24px; line-height: 1; }
+.dp-name { font-weight: 800; font-size: 14px; margin-top: 4px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-pts { font-weight: 800; font-size: 15px; color: var(--clay-dark); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.dp-move { font-size: 11px; font-weight: 700; margin-top: 3px; min-height: 14px; }
+.dp-move .up { color: var(--court); }
+.dp-move .down { color: #b23b3b; }
+.dp-today { color: var(--court); }
+
+/* matches to watch */
+.watch-list { display: flex; flex-direction: column; }
+.watch-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.watch-row:first-child { border-top: none; }
+.w-ev { flex: 0 0 46px; font-size: 11px; font-weight: 700; color: var(--clay); }
+.w-match { min-width: 0; color: var(--ink); }
+.w-match .flag { width: 16px; height: 12px; margin: 0 4px 0 0; }
+.w-v { color: var(--muted); font-size: 12px; margin: 0 2px; }
+
+/* fallen seeds — two columns (men / women) */
+.fallen2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fc-head { font-size: 12px; font-weight: 800; color: var(--clay-dark); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.fs-list { list-style: none; margin: 0; padding: 0; }
+.fs-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 6px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.fs-list li:first-child { border-top: none; }
+.fs-seed { flex: 0 0 auto; min-width: 16px; text-align: center; font-weight: 800; font-size: 11px; color: #fff; background: var(--clay); border-radius: 4px; padding: 1px 4px; }
+.fs-name { font-weight: 600; color: var(--ink); }
+.fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
 /* unanimous right / wrong lists under "Family today" */
 .dr-unan { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 2px 26px; }
