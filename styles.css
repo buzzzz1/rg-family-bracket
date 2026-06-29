@@ -384,6 +384,32 @@ button { font-family: inherit; }
   .pm-empty { font-size: 12px; }
 }
 
+/* ---- daily recap page ---- */
+.daily-hero { text-align: center; }
+.daily-hero h2 { margin: 0; }
+.daily-sub { color: var(--court); font-family: 'Young Serif', Georgia, serif; font-size: 16px; margin-top: 2px; }
+.pending-note {
+  margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+  background: #f3eefa; border: 1px solid var(--line); color: var(--clay-dark);
+  font-size: 13px;
+}
+.dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.dr-beat:first-child { border-top: none; }
+.dr-ic { flex: 0 0 auto; font-size: 16px; }
+.dr-tx { min-width: 0; color: var(--ink); }
+.dr-tx strong { color: var(--clay-dark); }
+.dr-champs { display: flex; flex-direction: column; gap: 4px; }
+.dr-champ { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.dr-champ:first-child { border-top: none; }
+.dr-clbl { flex: 0 0 64px; color: var(--muted); font-weight: 700; }
+.dr-cval { min-width: 0; color: var(--ink); }
+.dr-cn { color: var(--muted); }
+.publish-row {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.publish-row p { flex: 1 1 200px; min-width: 0; }
+
 .champion-box {
   margin-top: 16px; padding: 14px; border-radius: 10px;
   background: linear-gradient(135deg, var(--gold), var(--clay));
