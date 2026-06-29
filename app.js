@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260629-2100';
+import { DRAWS } from './draws.js?v=20260629-2300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1149,10 +1149,27 @@ function upcomingMatches(limit) {
       const [a, b] = matchContenders(res, r, m);
       if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
       const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
-      out.push({ ev, r, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
+      out.push({ ev, r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
     }
   }
   return out.sort((x, y) => y.buzz - x.buzz).slice(0, limit);
+}
+
+// "A", "A & B", "A, B & C"
+function nameList(arr) {
+  if (arr.length <= 1) return arr[0] || '';
+  if (arr.length === 2) return `${arr[0]} & ${arr[1]}`;
+  return `${arr.slice(0, -1).join(', ')} & ${arr[arr.length - 1]}`;
+}
+
+// Seed numbers still alive in a draw (so the rest can be greyed as "out").
+function aliveSeedSet(ev) {
+  const draw = DRAWS[ev], res = state.results[ev], set = new Set();
+  for (let slot = 0; slot < draw.length; slot++) {
+    const p = draw[slot];
+    if (p && p.seed && isAlive(slot, res)) set.add(p.seed);
+  }
+  return set;
 }
 
 // Seeded players already knocked out, with the round and who beat them.
@@ -1202,10 +1219,16 @@ function dailyRecapView() {
 
   // Leaders — a compact top-three podium (the full ranking lives on the
   // Leaderboard tab), with each leader's movement and points gained today.
+  // Ties share a rank/medal (standard "1-1-3" competition ranking).
+  const ranks = raw.map(() => 0);
+  raw.forEach((e, i) => { ranks[i] = (i > 0 && e.total === raw[i - 1].total) ? ranks[i - 1] : i + 1; });
+  const prevSorted = raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name));
   const prevRank = {};
-  raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name))
-    .forEach((e, i) => { prevRank[e.id] = i + 1; });
+  prevSorted.forEach((e, i) => {
+    prevRank[e.id] = (i > 0 && e.prev === prevSorted[i - 1].prev) ? prevRank[prevSorted[i - 1].id] : i + 1;
+  });
   const medals = ['🥇', '🥈', '🥉'];
+  const medalFor = (rank) => rank <= 3 ? medals[rank - 1] : rank;
   const moveChip = (id, rank) => {
     const delta = prevRank[id] - rank;
     if (delta > 0) return `<span class="up">▲${delta}</span>`;
@@ -1215,9 +1238,9 @@ function dailyRecapView() {
   const todayChip = (e) => e.today > 0 ? `<span class="dp-today">+${e.today.toLocaleString()}</span>` : '';
   html += `<div class="panel"><h2>🏅 Leaders</h2><div class="day-podium">`;
   raw.slice(0, 3).forEach((e, i) => {
-    const move = moveChip(e.id, i + 1), today = todayChip(e);
-    html += `<div class="dp-card${i === 0 ? ' first' : ''}">
-      <div class="dp-medal">${medals[i]}</div>
+    const move = moveChip(e.id, ranks[i]), today = todayChip(e);
+    html += `<div class="dp-card${ranks[i] === 1 ? ' first' : ''}">
+      <div class="dp-medal">${medalFor(ranks[i])}</div>
       <div class="dp-name">${esc(e.name)}</div>
       <div class="dp-pts">${e.total.toLocaleString()}</div>
       <div class="dp-move">${move}${move && today ? ' ' : ''}${today}</div>
@@ -1227,10 +1250,10 @@ function dailyRecapView() {
   if (raw.length > 3) {
     html += `<div class="day-rest">`;
     raw.slice(3).forEach((e, idx) => {
-      const rank = idx + 4;
-      const move = moveChip(e.id, rank), today = todayChip(e);
+      const i = idx + 3;
+      const move = moveChip(e.id, ranks[i]), today = todayChip(e);
       html += `<div class="rest-row">
-        <span class="rr-rank">${rank}</span>
+        <span class="rr-rank">${ranks[i]}</span>
         <span class="rr-name">${esc(e.name)}</span>
         <span class="rr-chips">${move}${today}</span>
         <span class="rr-pts">${e.total.toLocaleString()}</span>
@@ -1258,16 +1281,16 @@ function dailyRecapView() {
       }
       const beat = (icon, label, val) => `<div class="dr-beat"><span class="dr-ic">${icon}</span><span class="dr-tx"><strong>${label}</strong> ${val}</span></div>`;
 
-      const ranked = raw.slice().sort((a, b) => todayPoints[b.id] - todayPoints[a.id]);
-      const mover = ranked[0];
-      if (mover && todayPoints[mover.id] > 0) {
-        html += beat('📈', 'Mover today:', `${esc(mover.name)} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
+      const maxToday = Math.max(0, ...raw.map(e => todayPoints[e.id]));
+      const movers = raw.filter(e => todayPoints[e.id] === maxToday).map(e => e.name);
+      if (maxToday > 0) {
+        html += beat('📈', 'Mover today:', `${esc(nameList(movers))} +${maxToday.toLocaleString()}`);
       }
-      const maxCorrect = Math.max(...Object.values(todayCorrect));
+      const maxCorrect = Math.max(0, ...raw.map(e => todayCorrect[e.id]));
       if (maxCorrect > 0) {
         const tops = raw.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
-        const sameAsMover = mover && tops.length === 1 && tops[0] === mover.name && todayPoints[mover.id] > 0;
-        if (!sameAsMover) html += beat('🎯', 'Best record today:', `${esc(tops.join(', '))} (${maxCorrect}/${todayAll.length})`);
+        const same = maxToday > 0 && tops.length === movers.length && tops.every(n => movers.includes(n));
+        if (!same) html += beat('🎯', 'Best record today:', `${esc(nameList(tops))} (${maxCorrect}/${todayAll.length})`);
       }
       const todayUpsets = todayAll.map(t => {
         const draw = DRAWS[t.event];
@@ -1311,7 +1334,26 @@ function dailyRecapView() {
   }
   html += `</div>`;
 
-  // Matches to watch — the next marquee matchups still to be played.
+  // Matches to watch — the next marquee matchups still to be played, each with a
+  // one-line hook (a family member's title pick, or how the pool split on it).
+  const watchNote = (ev, r, m, a, b) => {
+    const draw = DRAWS[ev];
+    const champFans = (slot) => raw.filter(e => e[ev].r6[0] === slot).map(e => e.name);
+    const ca = champFans(a), cb = champFans(b);
+    if (ca.length || cb.length) {
+      const parts = [];
+      if (ca.length) parts.push(`${draw[a].name} is ${nameList(ca)}'s pick to win it all`);
+      if (cb.length) parts.push(`${draw[b].name} is ${nameList(cb)}'s pick to win it all`);
+      return parts.join('; ') + '.';
+    }
+    let pa = 0, pb = 0;
+    for (const e of raw) { const p = e[ev]['r' + r][m]; if (p === a) pa++; else if (p === b) pb++; }
+    const N = pa + pb;
+    if (N === 0) return 'Nobody in the pool has a call on this one.';
+    if (pa === 0 || pb === 0) return `All ${N} brackets have ${esc(draw[pa > 0 ? a : b].name)} advancing.`;
+    if (pa === pb) return `A pool coin-flip — split ${pa}–${pb}.`;
+    return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
+  };
   const watch = upcomingMatches(10);
   if (watch.length) {
     html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
@@ -1319,20 +1361,31 @@ function dailyRecapView() {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
         <span class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span>
-        <span class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</span>
+        <span class="w-body">
+          <span class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</span>
+          <span class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</span>
+        </span>
       </div>`;
     });
     html += `</div></div>`;
   }
 
-  // Fallen seeds — seeded players already knocked out, men vs women.
+  // Fallen seeds — a 1-32 seed map (survivors normal, out greyed) plus the list
+  // of who's gone, in men / women columns.
+  const seedMap = (ev) => {
+    const alive = aliveSeedSet(ev);
+    let g = '<div class="seed-grid">';
+    for (let n = 1; n <= 32; n++) g += `<span class="seed-chip${alive.has(n) ? '' : ' out'}">${n}</span>`;
+    return g + '</div>';
+  };
   const fcol = (items) => items.length
     ? `<ul class="fs-list">${items.map(s =>
         `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">${ROUND_SHORT[s.r]} · lost to ${esc(s.by)}</span></li>`).join('')}</ul>`
     : `<p class="muted small" style="margin:0">None yet.</p>`;
+  const fColumn = (ev, lbl) => `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${fcol(fallenSeeds(ev))}</div>`;
   html += `<div class="panel"><h2>📉 Fallen Seeds</h2><div class="fallen2">
-    <div class="fallen-col"><div class="fc-head">Men</div>${fcol(fallenSeeds('men'))}</div>
-    <div class="fallen-col"><div class="fc-head">Women</div>${fcol(fallenSeeds('women'))}</div>
+    ${fColumn('men', 'Men')}
+    ${fColumn('women', 'Women')}
   </div></div>`;
 
   // Champions still alive
