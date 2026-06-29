@@ -385,14 +385,35 @@ button { font-family: inherit; }
 }
 
 /* ---- daily recap page ---- */
-.daily-hero { text-align: center; }
-.daily-hero h2 { margin: 0; }
-.daily-sub { color: var(--court); font-family: 'Young Serif', Georgia, serif; font-size: 16px; margin-top: 2px; }
-.pending-note {
-  margin-top: 12px; padding: 10px 12px; border-radius: 8px;
-  background: #f3eefa; border: 1px solid var(--line); color: var(--clay-dark);
-  font-size: 13px;
-}
+.daily-head { text-align: center; margin: 6px 0 14px; }
+.daily-head .dh-day { font-family: 'Young Serif', Georgia, serif; font-size: 25px; color: var(--clay-dark); line-height: 1.1; }
+.daily-head .dh-date { color: var(--muted); font-size: 14px; margin-top: 3px; }
+
+/* standings list with movement, today's gain and a leader-relative bar */
+.stand { display: flex; flex-direction: column; gap: 10px; }
+.stand-row { display: flex; flex-direction: column; gap: 5px; }
+.st-line { display: flex; align-items: center; gap: 8px; }
+.st-rank { flex: 0 0 26px; text-align: center; font-weight: 700; font-size: 15px; color: var(--muted); }
+.st-name { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stand-row.leader .st-name { color: var(--clay-dark); }
+.st-move { flex: 0 0 auto; font-size: 12px; font-weight: 700; }
+.st-move.up { color: var(--court); }
+.st-move.down { color: #b23b3b; }
+.st-today { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--court); }
+.st-pts { flex: 0 0 auto; font-weight: 800; color: var(--clay-dark); font-variant-numeric: tabular-nums; }
+.st-track { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.st-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--clay), var(--clay-dark)); transition: width .3s; }
+.stand-row.leader .st-fill { background: linear-gradient(90deg, var(--gold), var(--clay)); }
+
+/* unanimous right / wrong lists under "Family today" */
+.dr-unan { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 2px 26px; }
+.dr-ublock { border-left: 3px solid var(--line); padding-left: 10px; }
+.dr-ublock.right { border-color: var(--court); }
+.dr-ublock.wrong { border-color: #b23b3b; }
+.dr-uhead { font-size: 12px; font-weight: 700; color: var(--clay-dark); margin-bottom: 2px; }
+.dr-ul { list-style: none; margin: 0; padding: 0; }
+.dr-ul li { font-size: 13px; color: var(--ink); padding: 2px 0; }
+
 .dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .dr-beat:first-child { border-top: none; }
 .dr-ic { flex: 0 0 auto; font-size: 16px; }

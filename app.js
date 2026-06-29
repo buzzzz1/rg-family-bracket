@@ -339,6 +339,17 @@ function familyStats(entries, matches) {
   return { total, correct, byRound, unanimousCorrect, unanimousWrong, hardest, easiest };
 }
 
+// Which day of the Championships is it? Wimbledon 2026 runs Mon 29 Jun – Sun 12 Jul.
+function tournamentDay() {
+  const start = new Date(2026, 5, 29); // 29 Jun 2026 (month is 0-indexed)
+  const now = new Date();
+  const d0 = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const dn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayNum = Math.floor((dn - d0) / 86400000) + 1;
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return { dayNum, dateStr };
+}
+
 // Decorated player label for the recap (includes seed in parens if seeded).
 function recapName(draw, slot) {
   const p = draw[slot];
@@ -1101,32 +1112,60 @@ function recapView() {
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
 // Same beats as the shareable text recap (generateRecapText), rendered as a page.
 function dailyRecapView() {
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  let html = `<div class="panel daily-hero">
-    <h2>📰 Daily Recap</h2>
-    <div class="daily-sub">${dateStr} · Wimbledon 2026</div>
-    <div class="pending-note">🏆 The full tournament wrap-up is <strong>pending</strong> — it unlocks once the tournament wraps up.</div>
+  const { dayNum, dateStr } = tournamentDay();
+  const dayLine = dayNum < 1 ? 'Before the first ball' : `Day ${dayNum} of the Championships`;
+  let html = `<div class="daily-head">
+    <div class="dh-day">${esc(dayLine)}</div>
+    <div class="dh-date">${esc(dateStr)}</div>
   </div>`;
+
+  // Snapshot results = where things stood at the last recap "advance", so we can
+  // show movement and today's points gained.
+  const prevRes = state.recapSnapshot
+    ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
+    : { men: emptyPicks(), women: emptyPicks() };
 
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
     const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
-    return { id: e.id, name: e.name, men: mp, women: wp,
-      total: score(mp, state.results.men).total + score(wp, state.results.women).total };
+    const total = score(mp, state.results.men).total + score(wp, state.results.women).total;
+    const prev = score(mp, prevRes.men).total + score(wp, prevRes.women).total;
+    return { id: e.id, name: e.name, men: mp, women: wp, total, prev, today: total - prev };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
   if (raw.length === 0) {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Standings
-  html += `<div class="panel"><h2>🏆 Standings</h2><table class="lb"><tbody>`;
+  // Standings — rank movement since the last update, points gained today, and a
+  // bar showing each bracket's total relative to the leader.
+  const prevRank = {};
+  raw.slice().sort((a, b) => b.prev - a.prev || a.name.localeCompare(b.name))
+    .forEach((e, i) => { prevRank[e.id] = i + 1; });
+  const leaderTotal = raw[0].total;
+  const medals = ['🥇', '🥈', '🥉'];
+  html += `<div class="panel"><h2>Standings</h2><div class="stand">`;
   raw.forEach((e, i) => {
-    html += `<tr><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num total">${e.total.toLocaleString()}</td></tr>`;
+    const rank = i + 1;
+    const delta = prevRank[e.id] - rank;
+    let move = '';
+    if (delta > 0) move = `<span class="st-move up">▲${delta}</span>`;
+    else if (delta < 0) move = `<span class="st-move down">▼${-delta}</span>`;
+    const today = e.today > 0 ? `<span class="st-today">+${e.today.toLocaleString()}</span>` : '';
+    const pct = leaderTotal > 0 ? Math.round(e.total / leaderTotal * 100) : 0;
+    html += `<div class="stand-row${rank === 1 ? ' leader' : ''}">
+      <div class="st-line">
+        <span class="st-rank">${rank <= 3 ? medals[i] : rank}</span>
+        <span class="st-name">${esc(e.name)}</span>
+        ${move}${today}
+        <span class="st-pts">${e.total.toLocaleString()}</span>
+      </div>
+      <div class="st-track"><div class="st-fill" style="width:${pct}%"></div></div>
+    </div>`;
   });
-  html += `</tbody></table></div>`;
+  html += `</div></div>`;
 
   // Today's beats (diff since the last recap snapshot)
-  html += `<div class="panel"><h2>📅 ${dateStr}</h2>`;
+  html += `<div class="panel"><h2>📅 ${esc(dateStr)}</h2>`;
   if (!hasResults()) {
     html += `<p class="muted">The tournament hasn't started yet — daily highlights will appear here as results come in.</p>`;
   } else {
@@ -1178,10 +1217,23 @@ function dailyRecapView() {
       const fam = familyStats(raw, todayAll);
       if (fam.total > 0) {
         const pct = Math.round(fam.correct / fam.total * 100);
-        const parts = [`${pct}% (${fam.correct}/${fam.total})`];
-        if (fam.unanimousCorrect.length) parts.push(`${fam.unanimousCorrect.length} unanimous right`);
-        if (fam.unanimousWrong.length) parts.push(`${fam.unanimousWrong.length} unanimous wrong`);
-        html += beat('📊', 'Family today:', esc(parts.join(' · ')));
+        html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
+        const evL = (ev) => ev === 'men' ? 'M' : 'W';
+        const uList = (items, render) => `<ul class="dr-ul">${items.map(render).join('')}</ul>`;
+        if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
+          html += `<div class="dr-unan">`;
+          if (fam.unanimousCorrect.length) {
+            html += `<div class="dr-ublock right"><div class="dr-uhead">✅ We all nailed it</div>`
+              + uList(fam.unanimousCorrect, u => `<li>${evL(u.event)} ${ROUND_SHORT[u.r]} · ${esc(DRAWS[u.event][u.winner].name)}</li>`)
+              + `</div>`;
+          }
+          if (fam.unanimousWrong.length) {
+            html += `<div class="dr-ublock wrong"><div class="dr-uhead">❌ We all missed</div>`
+              + uList(fam.unanimousWrong, u => `<li>${evL(u.event)} ${ROUND_SHORT[u.r]} · picked ${esc(DRAWS[u.event][u.familyPick].name)}, ${esc(DRAWS[u.event][u.winner].name)} won</li>`)
+              + `</div>`;
+          }
+          html += `</div>`;
+        }
       }
     }
   }
