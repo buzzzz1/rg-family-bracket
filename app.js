@@ -77,7 +77,7 @@ const state = {
   entries: {},              // id -> { id, name, men, women }
   results: { men: emptyPicks(), women: emptyPicks() },
   recapSnapshot: null,        // last sent recap's results snapshot
-  config: { locked: false },
+  config: { locked: false, tournamentComplete: false },
   commish: false,
   viewingEntryId: null,
   playerModal: null,        // { ev, slot } when a player info card is open
@@ -1081,6 +1081,10 @@ function computeFinalRecap(entries) {
 }
 
 function recapView() {
+  // The big tournament wrap-up is held back until the commissioner marks the
+  // tournament complete. Until then this tab shows the day-by-day recap.
+  if (!state.config.tournamentComplete) return dailyRecapView();
+
   const rawEntries = Object.values(state.entries).filter(e => e.name).map(e => ({
     id: e.id, name: e.name,
     men: normalizePicks(e.men), women: normalizePicks(e.women),
@@ -1092,6 +1096,114 @@ function recapView() {
     return `<div class="panel"><h2>🏆 Tournament Wrap-Up</h2><p class="muted">No results entered yet — the wrap-up fills in as the tournament unfolds.</p></div>`;
   }
   return renderFinalRecapHTML(computeFinalRecap(rawEntries));
+}
+
+// ---- daily recap page (visible to everyone, refreshes as results come in) ----
+// Same beats as the shareable text recap (generateRecapText), rendered as a page.
+function dailyRecapView() {
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  let html = `<div class="panel daily-hero">
+    <h2>📰 Daily Recap</h2>
+    <div class="daily-sub">${dateStr} · Wimbledon 2026</div>
+    <div class="pending-note">🏆 The full tournament wrap-up is <strong>pending</strong> — it unlocks once the tournament wraps up.</div>
+  </div>`;
+
+  const raw = Object.values(state.entries).filter(e => e.name).map(e => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    return { id: e.id, name: e.name, men: mp, women: wp,
+      total: score(mp, state.results.men).total + score(wp, state.results.women).total };
+  }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+  if (raw.length === 0) {
+    return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
+  }
+
+  // Standings
+  html += `<div class="panel"><h2>🏆 Standings</h2><table class="lb"><tbody>`;
+  raw.forEach((e, i) => {
+    html += `<tr><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num total">${e.total.toLocaleString()}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Today's beats (diff since the last recap snapshot)
+  html += `<div class="panel"><h2>📅 ${dateStr}</h2>`;
+  if (!hasResults()) {
+    html += `<p class="muted">The tournament hasn't started yet — daily highlights will appear here as results come in.</p>`;
+  } else {
+    const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
+    const todayAll = [...diffTodayMatches(state.results.men, snap.men, 'men'),
+                      ...diffTodayMatches(state.results.women, snap.women, 'women')];
+    if (todayAll.length === 0) {
+      html += `<p class="muted">No new results since the last update.</p>`;
+    } else {
+      const todayPoints = {}, todayCorrect = {};
+      raw.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
+      for (const t of todayAll) for (const e of raw) {
+        if (e[t.event]['r' + t.r][t.m] === t.winner) { todayPoints[e.id] += ROUND_POINTS[t.r]; todayCorrect[e.id]++; }
+      }
+      const beat = (icon, label, val) => `<div class="dr-beat"><span class="dr-ic">${icon}</span><span class="dr-tx"><strong>${label}</strong> ${val}</span></div>`;
+
+      const ranked = raw.slice().sort((a, b) => todayPoints[b.id] - todayPoints[a.id]);
+      const mover = ranked[0];
+      if (mover && todayPoints[mover.id] > 0) {
+        html += beat('📈', 'Mover today:', `${esc(mover.name)} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
+      }
+      const maxCorrect = Math.max(...Object.values(todayCorrect));
+      if (maxCorrect > 0) {
+        const tops = raw.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
+        const sameAsMover = mover && tops.length === 1 && tops[0] === mover.name && todayPoints[mover.id] > 0;
+        if (!sameAsMover) html += beat('🎯', 'Best record today:', `${esc(tops.join(', '))} (${maxCorrect}/${todayAll.length})`);
+      }
+      const todayUpsets = todayAll.map(t => {
+        const draw = DRAWS[t.event];
+        const ws = draw[t.winner].seed || 99, ls = draw[t.loser].seed || 99;
+        const gap = ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls));
+        return { ...t, gap };
+      }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
+      if (todayUpsets.length) {
+        const top = todayUpsets[0], draw = DRAWS[top.event];
+        const whoHad = raw.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
+        const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
+          : whoHad.length === 1 ? `only ${whoHad[0]} had it` : `${whoHad.length} of you had it`;
+        html += beat('😱', 'Upset of the day:', `${esc(recapName(draw, top.winner))} d. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
+      }
+      const champLosses = [];
+      for (const e of raw) {
+        const mch = e.men.r6[0], wch = e.women.r6[0];
+        if (mch !== null && isAlive(mch, snap.men) && !isAlive(mch, state.results.men)) champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
+        if (wch !== null && isAlive(wch, snap.women) && !isAlive(wch, state.results.women)) champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
+      }
+      if (champLosses.length) html += beat('💀', 'Champion pick down:', esc(champLosses.join('; ')));
+
+      const fam = familyStats(raw, todayAll);
+      if (fam.total > 0) {
+        const pct = Math.round(fam.correct / fam.total * 100);
+        const parts = [`${pct}% (${fam.correct}/${fam.total})`];
+        if (fam.unanimousCorrect.length) parts.push(`${fam.unanimousCorrect.length} unanimous right`);
+        if (fam.unanimousWrong.length) parts.push(`${fam.unanimousWrong.length} unanimous wrong`);
+        html += beat('📊', 'Family today:', esc(parts.join(' · ')));
+      }
+    }
+  }
+  html += `</div>`;
+
+  // Champions still alive
+  html += `<div class="panel"><h2>🏆 Champions still alive</h2><div class="dr-champs">`;
+  for (const [ev, lbl] of [['men', "Men's"], ['women', "Women's"]]) {
+    const draw = DRAWS[ev], tally = {};
+    for (const e of raw) {
+      const c = e[ev].r6[0];
+      if (c === null || !isAlive(c, state.results[ev])) continue;
+      tally[draw[c].name] = (tally[draw[c].name] || 0) + 1;
+    }
+    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    html += `<div class="dr-champ"><div class="dr-clbl">${lbl}</div><div class="dr-cval">${
+      sorted.length === 0 ? `<span class="muted">nobody's champion still in 😱</span>`
+        : sorted.map(([n, c]) => `${esc(n)} <span class="dr-cn">(${c})</span>`).join(', ')
+    }</div></div>`;
+  }
+  html += `</div></div>`;
+  return html;
 }
 
 function renderFinalRecapHTML(rc) {
@@ -1369,6 +1481,19 @@ function commissionerTournamentRecapPanel() {
   html += `<textarea class="recap-text" id="tournament-recap-text" readonly rows="28">${esc(text)}</textarea>`;
   html += `<div class="recap-actions">
     <button class="btn" data-action="copy-tournament-recap">Copy tournament recap</button>
+  </div>`;
+  // Publish toggle — until this is on, everyone sees the Daily Recap page and the
+  // full wrap-up stays hidden.
+  const published = state.config.tournamentComplete;
+  html += `<div class="publish-row">
+    <p class="small ${published ? '' : 'muted'}" style="margin:0">
+      ${published
+        ? '✅ The full tournament wrap-up is <strong>published</strong> — everyone sees it on the Daily Recap tab.'
+        : '⏳ The wrap-up is <strong>pending</strong> — the family sees the Daily Recap until you publish.'}
+    </p>
+    <button class="btn ${published ? 'ghost' : ''}" data-action="toggle-final-recap">
+      ${published ? 'Unpublish (back to daily)' : 'Publish final wrap-up'}
+    </button>
   </div></div>`;
   return html;
 }
@@ -1696,7 +1821,8 @@ async function initFirebase() {
   });
 
   fb.onSnapshot(fb.doc(db, META_COLL, 'config'), d => {
-    state.config = d.exists() ? { locked: !!d.data().locked } : { locked: false };
+    const c = d.exists() ? d.data() : {};
+    state.config = { locked: !!c.locked, tournamentComplete: !!c.tournamentComplete };
     render();
   });
 
@@ -1743,6 +1869,12 @@ function setLocked(locked) {
   if (!db) return;
   fb.setDoc(fb.doc(db, META_COLL, 'config'), { locked }, { merge: true })
     .catch(err => alert('Could not update lock: ' + err.message));
+}
+
+function setTournamentComplete(tournamentComplete) {
+  if (!db) return;
+  fb.setDoc(fb.doc(db, META_COLL, 'config'), { tournamentComplete }, { merge: true })
+    .catch(err => alert('Could not update wrap-up status: ' + err.message));
 }
 
 // ---------------------------------------------------------------------------
@@ -1875,7 +2007,7 @@ function header() {
       <nav class="tabs">
         ${tab('bracket', 'My Bracket')}
         ${tab('leaderboard', 'Leaderboard')}
-        ${tab('recap', '🏆 Recap')}
+        ${tab('recap', '📰 Daily Recap')}
         ${tab('commissioner', 'Commissioner')}
         ${tab('archive', 'Past Tournaments')}
       </nav>
@@ -2347,6 +2479,13 @@ appEl.addEventListener('click', e => {
   else if (a === 'copy-final-recap') { copyFinalRecap(); }
   else if (a === 'advance-recap') {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
+  }
+  else if (a === 'toggle-final-recap') {
+    const now = !state.config.tournamentComplete;
+    const msg = now
+      ? 'Publish the full tournament wrap-up? Everyone will see it on the Daily Recap tab instead of the daily page.'
+      : 'Hide the wrap-up and go back to showing the Daily Recap page?';
+    if (confirm(msg)) setTournamentComplete(now);
   }
 });
 
