@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-1500';
+import { DRAWS } from './draws.js?v=20260630-1700';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1255,7 +1255,8 @@ function dailyRecapView() {
     const perf = todayAll.length
       ? `<div class="dp-perf"><span class="dp-pp">+${todayPoints[e.id].toLocaleString()}</span> · ${todayCorrect[e.id]}/${todayAll.length}</div>`
       : '';
-    return `<div class="dp-card${rank === 1 ? ' first' : ''}">${badge}
+    const rankCls = rank === 1 ? ' first' : rank === 2 ? ' second' : rank === 3 ? ' third' : '';
+    return `<div class="dp-card${rankCls}">${badge}
       <div class="dp-name">${esc(e.name)}</div>
       <div class="dp-pts">${e.total.toLocaleString()}</div>${perf}</div>`;
   };
@@ -2618,6 +2619,8 @@ function commissionerView() {
   html += `<button class="btn ${state.config.locked ? 'court' : ''}" data-action="toggle-lock">
     ${state.config.locked ? 'Unlock brackets' : 'Lock brackets now'}</button>`;
   html += `<p class="small muted">Lock the brackets once the tournament starts so picks are final.</p>`;
+  html += `<button class="btn" data-action="open-share" style="margin-top:6px">📸 Shareable card</button>`;
+  html += `<p class="small muted">Open the screenshot/download card to post the day's standings.</p>`;
   html += `</div>`;
 
   // Player PINs — so the commissioner can help anyone who forgets theirs.
