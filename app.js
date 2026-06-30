@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-0900';
+import { DRAWS } from './draws.js?v=20260630-1100';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -153,6 +153,16 @@ function score(picks, results) {
     }
   }
   return { per, total, correct };
+}
+
+// How many matches in a draw have a recorded result (the shared denominator).
+function playedCount(results) {
+  let n = 0;
+  for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+    const v = results['r' + r][m];
+    if (v !== null && v !== undefined) n++;
+  }
+  return n;
 }
 
 function hasResults() {
@@ -1372,7 +1382,7 @@ function dailyRecapView() {
     }
   }
   if (watch.length) {
-    html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
+    html += `<div class="panel"><h2>👀 Matches to Watch Tomorrow</h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
@@ -1421,19 +1431,26 @@ function dailyRecapView() {
   return html;
 }
 
-// A compact, full-screen one-pager built for screenshotting on a phone:
-// branding, the full standings with today's movement, and one headline.
+// A compact, full-screen one-pager built for screenshotting / downloading on a
+// phone: branding, standings (men/women split + picks correct + today's gain),
+// and the day's two headline beats.
 function shareCardView() {
   const { dateStr } = tournamentDay();
   const cr = currentRoundIndex();
+  const res = state.results;
   const prevRes = state.recapSnapshot
     ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
     : { men: emptyPicks(), women: emptyPicks() };
+  const played = playedCount(res.men) + playedCount(res.women);
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
     const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
-    const total = score(mp, state.results.men).total + score(wp, state.results.women).total;
+    const men = score(mp, res.men), women = score(wp, res.women);
+    const total = men.total + women.total;
     const prev = score(mp, prevRes.men).total + score(wp, prevRes.women).total;
-    return { id: e.id, name: e.name, total, today: total - prev };
+    return {
+      id: e.id, name: e.name, total, today: total - prev,
+      menPts: men.total, womenPts: women.total, correct: men.correct + women.correct,
+    };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   const ranks = raw.map(() => 0);
   raw.forEach((e, i) => { ranks[i] = (i > 0 && e.total === raw[i - 1].total) ? ranks[i - 1] : i + 1; });
@@ -1443,23 +1460,42 @@ function shareCardView() {
   raw.forEach((e, i) => {
     const badge = ranks[i] <= 3 ? medals[ranks[i] - 1] : `<span class="sc-rk">${ranks[i]}</span>`;
     const today = e.today > 0 ? `<span class="sc-td">+${e.today.toLocaleString()}</span>` : '';
+    const sub = `M ${e.menPts.toLocaleString()} · W ${e.womenPts.toLocaleString()}`
+      + (played > 0 ? ` · ${e.correct}/${played} correct` : '');
     rows += `<div class="sc-row${ranks[i] === 1 ? ' lead' : ''}">
       <span class="sc-badge">${badge}</span>
-      <span class="sc-name">${esc(e.name)}</span>
-      ${today}
+      <div class="sc-mid">
+        <div class="sc-nl"><span class="sc-name">${esc(e.name)}</span>${today}</div>
+        <div class="sc-sub">${sub}</div>
+      </div>
       <span class="sc-pts">${e.total.toLocaleString()}</span>
     </div>`;
   });
 
-  // One headline: who gained the most today (if anyone has).
+  // Bottom beats: most points today + upset of the day.
+  const beats = [];
   const maxToday = Math.max(0, ...raw.map(e => e.today));
-  const movers = raw.filter(e => e.today === maxToday).map(e => e.name);
-  const headline = maxToday > 0
-    ? `📈 Biggest gain today — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})`
-    : `Locked in — picks are final. Play is underway.`;
+  if (maxToday > 0) {
+    const movers = raw.filter(e => e.today === maxToday).map(e => e.name);
+    beats.push(`<div class="sc-beat">📈 <b>Most points today</b> — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})</div>`);
+  }
+  const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
+  const todayAll = [...diffTodayMatches(res.men, snap.men, 'men'), ...diffTodayMatches(res.women, snap.women, 'women')];
+  const upsets = todayAll.map(t => {
+    const d = DRAWS[t.event];
+    const ws = d[t.winner].seed || 99, ls = d[t.loser].seed || 99;
+    return { ...t, gap: ls === 99 ? 0 : (ws === 99 ? (33 - ls) : (ws - ls)) };
+  }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
+  if (upsets.length) {
+    const u = upsets[0], d = DRAWS[u.event];
+    beats.push(`<div class="sc-beat">😱 <b>Upset of the day</b> — ${esc(recapName(d, u.winner))} def. ${esc(recapName(d, u.loser))}</div>`);
+  }
 
   return `<div class="share-wrap">
-    <button class="sc-back" data-action="close-share">‹ Back</button>
+    <div class="sc-bar">
+      <button class="sc-back" data-action="close-share">‹ Back</button>
+      <button class="sc-dl" data-action="download-share">⬇ Download image</button>
+    </div>
     <div class="share-card" data-action="pm-stop">
       <div class="sc-top">
         <div class="sc-emoji">🎾</div>
@@ -1467,10 +1503,26 @@ function shareCardView() {
         <div class="sc-meta">Day ${TOURNAMENT_DAY} · ${esc(ROUND_NAMES[cr])} · ${esc(dateStr)}</div>
       </div>
       <div class="sc-standings">${rows}</div>
-      <div class="sc-line">${headline}</div>
-      <div class="sc-foot">kiwihousebracket.com</div>
+      ${beats.length ? `<div class="sc-beats">${beats.join('')}</div>` : ''}
     </div>
   </div>`;
+}
+
+// Render the share card to a PNG and download it (loads html2canvas on demand).
+async function downloadShareCard() {
+  const el = document.querySelector('.share-card');
+  if (!el) return;
+  try {
+    const mod = await import('https://esm.sh/html2canvas@1.4.1');
+    const html2canvas = mod.default || mod;
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const link = document.createElement('a');
+    link.download = `kiwi-house-bracket-day-${TOURNAMENT_DAY}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (err) {
+    alert('Could not build the image automatically — please screenshot the card instead.\n(' + err.message + ')');
+  }
 }
 
 function renderFinalRecapHTML(rc) {
@@ -2753,6 +2805,7 @@ appEl.addEventListener('click', e => {
   }
   else if (a === 'open-share') { state.shareCard = true; render(); }
   else if (a === 'close-share') { state.shareCard = false; render(); }
+  else if (a === 'download-share') { downloadShareCard(); }
   else if (a === 'toggle-final-recap') {
     const now = !state.config.tournamentComplete;
     const msg = now
