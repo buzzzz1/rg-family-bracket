@@ -486,7 +486,10 @@ button { font-family: inherit; }
 .dr-ublock.right .dr-uhead { color: var(--court); }
 .dr-ublock.wrong .dr-uhead { color: #9e3535; }
 .dr-ul { display: flex; flex-direction: column; gap: 5px; }
-.dr-mrow { font-size: 12px; line-height: 1.3; padding: 6px 9px; border-radius: 8px; color: var(--ink); }
+.dr-mrow {
+  font-size: 12px; line-height: 1.3; padding: 6px 9px; border-radius: 8px; color: var(--ink);
+  min-height: 44px; display: flex; align-items: center; box-sizing: border-box;
+}
 .dr-ublock.right .dr-mrow { background: #eef6f0; }
 .dr-ublock.wrong .dr-mrow { background: #fbeeee; }
 .dr-mrow b { font-weight: 800; }
