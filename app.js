@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-1300';
+import { DRAWS } from './draws.js?v=20260630-1500';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1382,7 +1382,7 @@ function dailyRecapView() {
     }
   }
   if (watch.length) {
-    html += `<div class="panel"><h2>👀 Matches to Watch Tomorrow</h2><div class="watch-list">`;
+    html += `<div class="panel"><h2>👀 Upcoming Matches to Watch</h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
