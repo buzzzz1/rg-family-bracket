@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-0100';
+import { DRAWS } from './draws.js?v=20260630-0300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +14,9 @@ const ROUND_SHORT = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'Final'];
 // (count halves, points double), so early-round accuracy and a correct
 // champion are weighted equally.
 const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
+// Tournament day shown on the Daily Recap header. Pinned (not date-derived) so
+// it stays put; bump it by hand as play advances.
+const TOURNAMENT_DAY = 1;
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
 
@@ -1193,11 +1196,10 @@ function fallenSeeds(ev) {
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
 // Same beats as the shareable text recap (generateRecapText), rendered as a page.
 function dailyRecapView() {
-  const { dayNum, dateStr } = tournamentDay();
+  const { dateStr } = tournamentDay();
   const cr = currentRoundIndex();
-  const dayPart = dayNum < 1 ? 'Warm-up' : `Day ${dayNum}`;
   let html = `<div class="daily-head">
-    <div class="dh-day">${esc(dayPart)} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[cr])}</div>
+    <div class="dh-day">Day ${TOURNAMENT_DAY} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[cr])}</div>
     <div class="dh-date">${esc(dateStr)}</div>
   </div>`;
 
@@ -1341,25 +1343,36 @@ function dailyRecapView() {
     if (pa === 0 || pb === 0) {
       const fav = pa > 0 ? a : b;
       const pickers = raw.filter(e => e[ev]['r' + r][m] === fav);
-      const depths = pickers.map(e => deepestPick(e, ev, fav));
-      const maxD = Math.max(...depths);
-      const k = depths.filter(d => d === maxD).length;
+      const maxD = Math.max(...pickers.map(e => deepestPick(e, ev, fav)));
+      const farNames = pickers.filter(e => deepestPick(e, ev, fav) === maxD).map(e => e.name);
       const far = maxD === 6 ? 'lifting the trophy' : `the ${ROUND_NAMES[maxD]}`;
-      return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${k === N ? 'all of them' : `${k} of them`} as far as ${far}.`;
+      const who = farNames.length === N
+        ? `all ${N} as far as ${far}`
+        : `${farNames.length} as far as ${far} (${esc(nameList(farNames))})`;
+      return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${who}.`;
     }
     if (pa === pb) return `A pool coin-flip — split ${pa}–${pb}.`;
     return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
   };
   const watch = upcomingMatches(5);
+  // Always feature Serena Williams's match while she's still in the draw.
+  const sSlot = DRAWS.women.findIndex(p => p && p.name === 'S. Williams');
+  if (sSlot >= 0) {
+    const r = currentRoundIndex(), wRes = state.results.women, m = matchOfSlot(sSlot, r);
+    const [a, b] = matchContenders(wRes, r, m);
+    const played = wRes['r' + r][m] !== null && wRes['r' + r][m] !== undefined;
+    if (!played && a != null && b != null && !watch.some(w => w.ev === 'women' && w.r === r && w.m === m)) {
+      const ba = slotBuzz(DRAWS.women, a), bb = slotBuzz(DRAWS.women, b);
+      watch.push({ ev: 'women', r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
+    }
+  }
   if (watch.length) {
     html += `<div class="panel"><h2>👀 Matches to Watch</h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
-        <div class="w-left">
-          <div class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</div>
-          <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
-        </div>
+        <div class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</div>
+        <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
         <div class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</div>
       </div>`;
     });
