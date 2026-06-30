@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-0300';
+import { DRAWS } from './draws.js?v=20260630-0500';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -84,6 +84,7 @@ const state = {
   commish: false,
   viewingEntryId: null,
   playerModal: null,        // { ev, slot } when a player info card is open
+  shareCard: false,         // true when the screenshot-friendly one-pager is open
   ready: false,
 };
 
@@ -1201,6 +1202,7 @@ function dailyRecapView() {
   let html = `<div class="daily-head">
     <div class="dh-day">Day ${TOURNAMENT_DAY} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[cr])}</div>
     <div class="dh-date">${esc(dateStr)}</div>
+    <button class="share-btn" data-action="open-share">📸 Shareable card</button>
   </div>`;
 
   // Snapshot results = where things stood at the last recap "advance", so we can
@@ -1244,7 +1246,7 @@ function dailyRecapView() {
     const rank = ranks[i];
     const badge = rank <= 3 ? `<div class="dp-medal">${medals[rank - 1]}</div>` : `<div class="dp-rank">${rank}</div>`;
     const perf = todayAll.length
-      ? `<div class="dp-perf"><span class="dp-pp">+${todayPoints[e.id].toLocaleString()}</span> · ${todayCorrect[e.id]}/${todayAll.length} correct</div>`
+      ? `<div class="dp-perf"><span class="dp-pp">+${todayPoints[e.id].toLocaleString()}</span> · ${todayCorrect[e.id]}/${todayAll.length}</div>`
       : '';
     return `<div class="dp-card${rank === 1 ? ' first' : ''}">${badge}
       <div class="dp-name">${esc(e.name)}</div>
@@ -1414,6 +1416,58 @@ function dailyRecapView() {
   }
   html += `</div></div>`;
   return html;
+}
+
+// A compact, full-screen one-pager built for screenshotting on a phone:
+// branding, the full standings with today's movement, and one headline.
+function shareCardView() {
+  const { dateStr } = tournamentDay();
+  const cr = currentRoundIndex();
+  const prevRes = state.recapSnapshot
+    ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
+    : { men: emptyPicks(), women: emptyPicks() };
+  const raw = Object.values(state.entries).filter(e => e.name).map(e => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    const total = score(mp, state.results.men).total + score(wp, state.results.women).total;
+    const prev = score(mp, prevRes.men).total + score(wp, prevRes.women).total;
+    return { id: e.id, name: e.name, total, today: total - prev };
+  }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  const ranks = raw.map(() => 0);
+  raw.forEach((e, i) => { ranks[i] = (i > 0 && e.total === raw[i - 1].total) ? ranks[i - 1] : i + 1; });
+  const medals = ['🥇', '🥈', '🥉'];
+
+  let rows = '';
+  raw.forEach((e, i) => {
+    const badge = ranks[i] <= 3 ? medals[ranks[i] - 1] : `<span class="sc-rk">${ranks[i]}</span>`;
+    const today = e.today > 0 ? `<span class="sc-td">+${e.today.toLocaleString()}</span>` : '';
+    rows += `<div class="sc-row${ranks[i] === 1 ? ' lead' : ''}">
+      <span class="sc-badge">${badge}</span>
+      <span class="sc-name">${esc(e.name)}</span>
+      ${today}
+      <span class="sc-pts">${e.total.toLocaleString()}</span>
+    </div>`;
+  });
+
+  // One headline: who gained the most today (if anyone has).
+  const maxToday = Math.max(0, ...raw.map(e => e.today));
+  const movers = raw.filter(e => e.today === maxToday).map(e => e.name);
+  const headline = maxToday > 0
+    ? `📈 Biggest gain today — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})`
+    : `Locked in — picks are final. Play is underway.`;
+
+  return `<div class="share-wrap">
+    <button class="sc-back" data-action="close-share">‹ Back</button>
+    <div class="share-card" data-action="pm-stop">
+      <div class="sc-top">
+        <div class="sc-emoji">🎾</div>
+        <div class="sc-brand">Kiwi House Bracket</div>
+        <div class="sc-meta">Day ${TOURNAMENT_DAY} · ${esc(ROUND_NAMES[cr])} · ${esc(dateStr)}</div>
+      </div>
+      <div class="sc-standings">${rows}</div>
+      <div class="sc-line">${headline}</div>
+      <div class="sc-foot">kiwihousebracket.com</div>
+    </div>
+  </div>`;
 }
 
 function renderFinalRecapHTML(rc) {
@@ -2173,6 +2227,10 @@ function render() {
   if (!state.userId) { appEl.innerHTML = welcomeScreen(); return; }
   if (!state.myPicks) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Loading your bracket…</div>'; return; }
 
+  // The shareable one-pager takes over the whole screen (no header/tabs) so it's
+  // clean to screenshot.
+  if (state.shareCard) { appEl.innerHTML = shareCardView(); return; }
+
   let body;
   if (state.viewingEntryId) body = entryView();
   else if (state.view === 'leaderboard') body = leaderboardView();
@@ -2690,6 +2748,8 @@ appEl.addEventListener('click', e => {
   else if (a === 'advance-recap') {
     if (confirm('Mark this recap as sent? The next recap will diff from this point.')) advanceRecap();
   }
+  else if (a === 'open-share') { state.shareCard = true; render(); }
+  else if (a === 'close-share') { state.shareCard = false; render(); }
   else if (a === 'toggle-final-recap') {
     const now = !state.config.tournamentComplete;
     const msg = now

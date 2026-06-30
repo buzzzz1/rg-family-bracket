@@ -389,6 +389,42 @@ button { font-family: inherit; }
 .daily-head .dh-day { font-family: 'Young Serif', Georgia, serif; font-size: 24px; color: var(--clay-dark); line-height: 1.1; }
 .daily-head .dh-sep { color: var(--muted); font-weight: 400; margin: 0 2px; }
 .daily-head .dh-date { color: var(--muted); font-size: 14px; margin-top: 3px; }
+.share-btn {
+  margin-top: 10px; padding: 7px 14px; border: 1px solid var(--clay);
+  border-radius: 999px; background: var(--card); color: var(--clay);
+  font: 600 13px Manrope, system-ui, sans-serif; cursor: pointer;
+}
+.share-btn:hover { background: var(--clay); color: #fff; }
+
+/* shareable one-pager */
+.share-wrap { padding: 8px 0 24px; }
+.sc-back {
+  border: none; background: none; color: var(--clay); cursor: pointer;
+  font: 600 14px Manrope, system-ui, sans-serif; padding: 6px 4px; margin-bottom: 6px;
+}
+.share-card {
+  max-width: 380px; margin: 0 auto; border-radius: 18px; overflow: hidden;
+  background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .12);
+}
+.sc-top {
+  text-align: center; padding: 22px 16px 16px; color: #fff;
+  background: linear-gradient(135deg, var(--court), var(--clay-dark));
+}
+.sc-emoji { font-size: 30px; line-height: 1; }
+.sc-brand { font-family: 'Young Serif', Georgia, serif; font-size: 23px; margin-top: 4px; }
+.sc-meta { font-size: 12px; opacity: .9; margin-top: 4px; }
+.sc-standings { padding: 6px 16px 4px; }
+.sc-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.sc-row:first-child { border-top: none; }
+.sc-row.lead .sc-name { color: var(--clay-dark); font-weight: 800; }
+.sc-badge { flex: 0 0 26px; text-align: center; font-size: 17px; }
+.sc-rk { display: inline-block; width: 22px; height: 22px; line-height: 22px; border-radius: 50%; background: #efeaf6; color: var(--clay-dark); font-size: 12px; font-weight: 800; }
+.sc-name { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-td { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--court); }
+.sc-pts { flex: 0 0 auto; font-weight: 800; color: var(--clay-dark); font-variant-numeric: tabular-nums; }
+.sc-line { margin: 6px 16px 0; padding: 10px 12px; border-radius: 10px; background: #f3eefa; color: var(--clay-dark); font-size: 13px; font-weight: 600; text-align: center; }
+.sc-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 14px 16px 18px; letter-spacing: .3px; }
 
 /* leaders — compact top-three podium */
 .day-podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -421,12 +457,15 @@ button { font-family: inherit; }
 .w-v { color: var(--muted); font-size: 11px; margin: 0 2px; font-weight: 400; }
 .w-note { flex: 1 1 180px; min-width: 0; font-size: 12px; color: var(--muted); }
 
-/* fallen-seeds 1-32 seed map */
-.seed-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+/* fallen-seeds 1-32 seed map — an even grid so the rows line up */
+.seed-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 1fr));
+  gap: 3px; margin-bottom: 10px;
+}
 .seed-chip {
-  flex: 0 0 auto; min-width: 20px; text-align: center; padding: 2px 3px;
+  text-align: center; padding: 3px 0; line-height: 1;
   font-size: 11px; font-weight: 700; border-radius: 4px;
-  background: var(--clay); color: #fff;
+  background: var(--clay); color: #fff; font-variant-numeric: tabular-nums;
 }
 .seed-chip.out { background: #ece8f1; color: #b9b2c6; text-decoration: line-through; }
 
