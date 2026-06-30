@@ -440,6 +440,8 @@ button { font-family: inherit; }
 .day-podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .dp-card { text-align: center; border: 1px solid var(--line); border-radius: 12px; padding: 12px 6px; background: var(--card); }
 .dp-card.first { background: linear-gradient(160deg, #fffdf5, #f7eccf); border-color: var(--gold); }
+.dp-card.second { background: linear-gradient(160deg, #ffffff, #e7e7ee); border-color: #bcbcc8; }
+.dp-card.third { background: linear-gradient(160deg, #fff7f1, #f0ddcd); border-color: #cf9e76; }
 .dp-medal { font-size: 24px; line-height: 1; }
 .dp-name { font-weight: 800; font-size: 14px; margin-top: 4px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dp-pts { font-weight: 800; font-size: 15px; color: var(--clay-dark); margin-top: 2px; font-variant-numeric: tabular-nums; }
