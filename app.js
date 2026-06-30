@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-1100';
+import { DRAWS } from './draws.js?v=20260630-1300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1515,7 +1515,9 @@ async function downloadShareCard() {
   try {
     const mod = await import('https://esm.sh/html2canvas@1.4.1');
     const html2canvas = mod.default || mod;
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    // backgroundColor null => the area outside the card's rounded corners stays
+    // transparent in the PNG (no white triangles).
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: null, useCORS: true });
     const link = document.createElement('a');
     link.download = `kiwi-house-bracket-day-${TOURNAMENT_DAY}.png`;
     link.href = canvas.toDataURL('image/png');
