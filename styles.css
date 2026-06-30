@@ -396,6 +396,19 @@ button { font-family: inherit; }
 }
 .share-btn:hover { background: var(--clay); color: #fff; }
 
+/* auto-update banner */
+.update-banner {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2000;
+  display: flex; align-items: center; gap: 12px; max-width: 92%;
+  padding: 10px 12px 10px 16px; border-radius: 999px;
+  background: var(--clay-dark); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+  font: 600 14px Manrope, system-ui, sans-serif;
+}
+.update-banner button {
+  border: none; border-radius: 999px; cursor: pointer; padding: 7px 14px;
+  background: #fff; color: var(--clay-dark); font: 700 13px Manrope, system-ui, sans-serif;
+}
+
 /* shareable one-pager */
 .share-wrap { padding: 8px 0 24px; }
 .sc-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
