@@ -487,7 +487,7 @@ button { font-family: inherit; }
 .fs-list { list-style: none; margin: 0; padding: 0; }
 .fs-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 6px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .fs-list li:first-child { border-top: none; }
-.fs-seed { flex: 0 0 auto; min-width: 16px; text-align: center; font-weight: 800; font-size: 11px; color: #fff; background: var(--clay); border-radius: 4px; padding: 1px 4px; }
+.fs-seed { flex: 0 0 auto; min-width: 16px; text-align: center; font-weight: 800; font-size: 11px; color: #b9b2c6; background: #ece8f1; border-radius: 4px; padding: 1px 4px; text-decoration: line-through; }
 .fs-name { font-weight: 600; color: var(--ink); }
 .fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
