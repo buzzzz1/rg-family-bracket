@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-0500';
+import { DRAWS } from './draws.js?v=20260630-0700';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -343,15 +343,12 @@ function familyStats(entries, matches) {
   return { total, correct, byRound, unanimousCorrect, unanimousWrong, hardest, easiest };
 }
 
-// Which day of the Championships is it? Wimbledon 2026 runs Mon 29 Jun – Sun 12 Jul.
+// The daily recap covers YESTERDAY's play, so the header date is yesterday.
 function tournamentDay() {
-  const start = new Date(2026, 5, 29); // 29 Jun 2026 (month is 0-indexed)
-  const now = new Date();
-  const d0 = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const dn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayNum = Math.floor((dn - d0) / 86400000) + 1;
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  return { dayNum, dateStr };
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const dateStr = y.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return { dateStr };
 }
 
 // Decorated player label for the recap (includes seed in parens if seeded).
@@ -1306,9 +1303,9 @@ function dailyRecapView() {
     if (fam.total > 0) {
       const pct = Math.round(fam.correct / fam.total * 100);
       html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
-      const defLine = (u) => `${esc(DRAWS[u.event][u.winner].name)} def. ${esc(DRAWS[u.event][u.loser].name)}`;
+      const defLine = (u) => `<b>${esc(DRAWS[u.event][u.winner].name)}</b> <span class="dl-def">def.</span> ${esc(DRAWS[u.event][u.loser].name)}`;
       const uCol = (items) => items.length
-        ? `<ul class="dr-ul">${items.map(u => `<li>${defLine(u)}</li>`).join('')}</ul>`
+        ? `<div class="dr-ul">${items.map(u => `<div class="dr-mrow">${defLine(u)}</div>`).join('')}</div>`
         : `<p class="dr-uempty">—</p>`;
       if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
         html += `<div class="dr-unan2">
@@ -1345,13 +1342,18 @@ function dailyRecapView() {
     if (pa === 0 || pb === 0) {
       const fav = pa > 0 ? a : b;
       const pickers = raw.filter(e => e[ev]['r' + r][m] === fav);
+      // deepestPick = the deepest round they've got `fav` WINNING; reaching the
+      // next round (maxD+1). Only worth mentioning if that's beyond just winning
+      // this match (maxD > r), otherwise it's the same as "advancing".
       const maxD = Math.max(...pickers.map(e => deepestPick(e, ev, fav)));
-      const farNames = pickers.filter(e => deepestPick(e, ev, fav) === maxD).map(e => e.name);
-      const far = maxD === 6 ? 'lifting the trophy' : `the ${ROUND_NAMES[maxD]}`;
-      const who = farNames.length === N
-        ? `all ${N} as far as ${far}`
-        : `${farNames.length} as far as ${far} (${esc(nameList(farNames))})`;
-      return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${who}.`;
+      if (maxD > r) {
+        const farNames = pickers.filter(e => deepestPick(e, ev, fav) === maxD).map(e => e.name);
+        const reach = maxD === 6 ? 'lifting the trophy' : `the ${ROUND_NAMES[maxD + 1]}`;
+        const who = farNames.length === N ? `all ${N}` : `${farNames.length}`;
+        const names = farNames.length === N ? '' : ` (${esc(nameList(farNames))})`;
+        return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${who} as far as ${reach}${names}.`;
+      }
+      return `All ${N} brackets have ${esc(draw[fav].name)} advancing.`;
     }
     if (pa === pb) return `A pool coin-flip — split ${pa}–${pb}.`;
     return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
