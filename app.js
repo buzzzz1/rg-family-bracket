@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260630-0700';
+import { DRAWS } from './draws.js?v=20260630-0900';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -1303,9 +1303,10 @@ function dailyRecapView() {
     if (fam.total > 0) {
       const pct = Math.round(fam.correct / fam.total * 100);
       html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
-      const defLine = (u) => `<b>${esc(DRAWS[u.event][u.winner].name)}</b> <span class="dl-def">def.</span> ${esc(DRAWS[u.event][u.loser].name)}`;
+      const defLine = (u) => { const d = DRAWS[u.event];
+        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}`; };
       const uCol = (items) => items.length
-        ? `<div class="dr-ul">${items.map(u => `<div class="dr-mrow">${defLine(u)}</div>`).join('')}</div>`
+        ? `<div class="dr-ul">${items.map(u => `<div class="dr-mrow"><span>${defLine(u)}</span></div>`).join('')}</div>`
         : `<p class="dr-uempty">—</p>`;
       if (fam.unanimousCorrect.length || fam.unanimousWrong.length) {
         html += `<div class="dr-unan2">
@@ -1402,7 +1403,7 @@ function dailyRecapView() {
   </div></div>`;
 
   // Champions still alive
-  html += `<div class="panel"><h2>🏆 Champions still alive</h2><div class="dr-champs">`;
+  html += `<div class="panel"><h2>🏆 Champions Still Alive</h2><div class="dr-champs">`;
   for (const [ev, lbl] of [['men', "Men's"], ['women', "Women's"]]) {
     const draw = DRAWS[ev], tally = {};
     for (const e of raw) {
