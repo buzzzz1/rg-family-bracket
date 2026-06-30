@@ -482,10 +482,13 @@ button { font-family: inherit; }
 .w-v { color: var(--muted); font-size: 11px; margin: 0 2px; font-weight: 400; }
 .w-note { flex: 1 1 180px; min-width: 0; font-size: 12px; color: var(--muted); }
 
-/* fallen-seeds 1-32 seed map — fixed 8-wide grid (4 tidy rows) */
+/* fallen-seeds 1-32 seed map — 16-wide (2 rows) on desktop, 8-wide on phones */
 .seed-grid {
-  display: grid; grid-template-columns: repeat(8, 1fr);
+  display: grid; grid-template-columns: repeat(16, 1fr);
   gap: 3px; margin-bottom: 10px;
+}
+@media (max-width: 600px) {
+  .seed-grid { grid-template-columns: repeat(8, 1fr); }
 }
 .seed-chip {
   text-align: center; padding: 3px 0; line-height: 1;
@@ -510,10 +513,11 @@ button { font-family: inherit; }
 .dr-uhead { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
 .dr-ublock.right .dr-uhead { color: var(--court); }
 .dr-ublock.wrong .dr-uhead { color: #9e3535; }
-.dr-ul { display: flex; flex-direction: column; gap: 5px; }
+/* cards pack into as many columns as fit, so the section stays short */
+.dr-ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; align-content: start; }
 .dr-mrow {
-  font-size: 12px; line-height: 1.3; padding: 6px 9px; border-radius: 8px; color: var(--ink);
-  min-height: 44px; display: flex; align-items: center; box-sizing: border-box;
+  font-size: 11.5px; line-height: 1.25; padding: 5px 8px; border-radius: 8px; color: var(--ink);
+  min-height: 38px; display: flex; align-items: center; box-sizing: border-box;
 }
 .dr-ublock.right .dr-mrow { background: #eef6f0; }
 .dr-ublock.wrong .dr-mrow { background: #fbeeee; }
