@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260701-0100';
+import { DRAWS } from './draws.js?v=20260701-0300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260701-0100';
+const BUILD = '20260701-0300';
 // Tournament day shown on the Daily Recap header. Pinned (not date-derived) so
 // it stays put; bump it by hand as play advances.
 const TOURNAMENT_DAY = 2;
@@ -1151,15 +1151,32 @@ function matchContenders(res, r, m) {
   return [res['r' + (r - 1)][2 * m], res['r' + (r - 1)][2 * m + 1]];
 }
 
-// Upcoming matchups in the round currently being played (both players known,
-// not yet played), ranked by star power. Restricted to a single round so the
-// list only ever shows "the next day's" matches (e.g. all R128 while in R128).
-// Returns the top `perEvent` men's matches first, then the top women's.
+// The deepest round that still has a "ready" (both players known) unplayed
+// match — i.e. the next real wave of matches to be contested. With R128 done
+// for the top half, this surfaces the R64.
+function featuredWatchRound() {
+  for (let r = 6; r >= 0; r--) {
+    for (const ev of ['men', 'women']) {
+      const res = state.results[ev];
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue;
+        const [a, b] = matchContenders(res, r, m);
+        if (a !== null && a !== undefined && b !== null && b !== undefined) return r;
+      }
+    }
+  }
+  return 0;
+}
+
+// Upcoming matchups to watch — the TOP half of the next round to be played
+// (both players known, not yet played), ranked by star power. Top `perEvent`
+// men's first, then women's.
 function upcomingMatches(perEvent) {
-  const r = currentRoundIndex();
+  const r = featuredWatchRound();
+  const half = ROUND_SIZES[r] / 2; // the top half of this round is what's up next
   const pick = (ev) => {
     const draw = DRAWS[ev], res = state.results[ev], out = [];
-    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+    for (let m = 0; m < half; m++) {
       if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
       const [a, b] = matchContenders(res, r, m);
       if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
@@ -1199,7 +1216,7 @@ function fallenSeeds(ev) {
       if (a === null || a === undefined || b === null || b === undefined) continue;
       const loser = w === a ? b : a;
       const lp = draw[loser];
-      if (lp && lp.seed) out.push({ seed: lp.seed, name: lp.name, r, by: draw[w].name });
+      if (lp && lp.seed) out.push({ seed: lp.seed, name: lp.name, r, m, by: draw[w].name });
     }
   }
   return out.sort((x, y) => x.seed - y.seed);
@@ -1374,13 +1391,14 @@ function dailyRecapView() {
     return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
   };
   const watch = upcomingMatches(5);
-  // Always feature Serena Williams's match while she's still in the draw.
+  // Always feature Serena Williams's next match while she's still alive.
   const sSlot = DRAWS.women.findIndex(p => p && p.name === 'S. Williams');
   if (sSlot >= 0) {
-    const r = currentRoundIndex(), wRes = state.results.women, m = matchOfSlot(sSlot, r);
+    const r = featuredWatchRound(), wRes = state.results.women, m = matchOfSlot(sSlot, r);
     const [a, b] = matchContenders(wRes, r, m);
     const played = wRes['r' + r][m] !== null && wRes['r' + r][m] !== undefined;
-    if (!played && a != null && b != null && !watch.some(w => w.ev === 'women' && w.r === r && w.m === m)) {
+    const serenaIn = a === sSlot || b === sSlot; // she actually reached this match
+    if (!played && serenaIn && a != null && b != null && !watch.some(w => w.ev === 'women' && w.r === r && w.m === m)) {
       const ba = slotBuzz(DRAWS.women, a), bb = slotBuzz(DRAWS.women, b);
       watch.push({ ev: 'women', r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
     }
@@ -1398,19 +1416,27 @@ function dailyRecapView() {
     html += `</div></div>`;
   }
 
-  // Fallen seeds — a 1-32 seed map (survivors normal, out greyed) plus the list
-  // of who's gone, in men / women columns.
+  // Fallen seeds — a 1-32 seed map, then Day 2's casualties, with earlier days
+  // tucked behind a caret. A seed is "Day 2" if it fell in a Day-2 match.
+  const day2Set = new Set(todayAll.map(t => `${t.event}:${t.r}:${t.m}`));
   const seedMap = (ev) => {
     const alive = aliveSeedSet(ev);
     let g = '<div class="seed-grid">';
     for (let n = 1; n <= 32; n++) g += `<span class="seed-chip${alive.has(n) ? '' : ' out'}">${n}</span>`;
     return g + '</div>';
   };
-  const fcol = (items) => items.length
-    ? `<ul class="fs-list">${items.map(s =>
-        `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">${ROUND_SHORT[s.r]} · lost to ${esc(s.by)}</span></li>`).join('')}</ul>`
-    : `<p class="muted small" style="margin:0">None yet.</p>`;
-  const fColumn = (ev, lbl) => `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${fcol(fallenSeeds(ev))}</div>`;
+  const fList = (items) => `<ul class="fs-list">${items.map(s =>
+    `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">${ROUND_SHORT[s.r]} · lost to ${esc(s.by)}</span></li>`).join('')}</ul>`;
+  const fColumn = (ev, lbl) => {
+    const all = fallenSeeds(ev);
+    const day2 = all.filter(s => day2Set.has(`${ev}:${s.r}:${s.m}`));
+    const prior = all.filter(s => !day2Set.has(`${ev}:${s.r}:${s.m}`));
+    const body = day2.length ? fList(day2) : `<p class="muted small" style="margin:0">None today.</p>`;
+    const earlier = prior.length
+      ? `<details class="fs-more"><summary>Earlier fallers (${prior.length})</summary>${fList(prior)}</details>`
+      : '';
+    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${body}${earlier}</div>`;
+  };
   html += `<div class="panel"><h2>📉 Fallen Seeds</h2><div class="fallen2">
     ${fColumn('men', 'Men')}
     ${fColumn('women', 'Women')}

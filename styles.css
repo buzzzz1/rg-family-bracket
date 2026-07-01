@@ -504,6 +504,14 @@ button { font-family: inherit; }
 .fs-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 6px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .fs-list li:first-child { border-top: none; }
 .fs-seed { flex: 0 0 auto; min-width: 16px; text-align: center; font-weight: 800; font-size: 11px; color: #b9b2c6; background: #ece8f1; border-radius: 4px; padding: 1px 4px; text-decoration: line-through; }
+.fs-more { margin-top: 6px; }
+.fs-more > summary {
+  cursor: pointer; list-style: none; font-size: 12px; font-weight: 700; color: var(--clay);
+  padding: 4px 0; user-select: none;
+}
+.fs-more > summary::before { content: "▸ "; }
+.fs-more[open] > summary::before { content: "▾ "; }
+.fs-more > summary::-webkit-details-marker { display: none; }
 .fs-name { font-weight: 600; color: var(--ink); }
 .fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
