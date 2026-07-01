@@ -135,7 +135,8 @@ async function fetchExistingResults() {
   const { projectId, apiKey } = firebaseConfig;
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}` +
     `/databases/(default)/documents/meta/results?key=${apiKey}`;
-  const res = await fetch(url);
+  let res;
+  try { res = await fetch(url); } catch (e) { console.warn('Firestore read unavailable:', e.message); return null; }
   if (!res.ok) return null;
   const data = await res.json();
   if (!data.fields) return null;
