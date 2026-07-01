@@ -466,6 +466,15 @@ button { font-family: inherit; }
 }
 .dp-perf { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .dp-perf .dp-pp { color: var(--court); font-weight: 700; }
+/* overall correct/total, then a "today" block (point change · today's correct · position) */
+.dp-tot { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+.dp-day { margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--line); }
+.dp-drow { font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.dp-drow .dp-pp { color: var(--court); }
+.dp-drow .up { color: var(--court); }
+.dp-drow .down { color: #b23b3b; }
+.dp-drow .flat { color: var(--muted); }
+.dp-dsub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 .day-podium { row-gap: 8px; }
 
 /* matches to watch — small round tag, the matchup, then the note hugging it
@@ -515,22 +524,30 @@ button { font-family: inherit; }
 .fs-name { font-weight: 600; color: var(--ink); }
 .fs-by { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 
-/* unanimous right / wrong — two columns, each match its own tinted card */
-.dr-unan2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0 2px; align-items: start; }
-.dr-ublock { min-width: 0; }
-.dr-uhead { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
-.dr-ublock.right .dr-uhead { color: var(--court); }
-.dr-ublock.wrong .dr-uhead { color: #9e3535; }
+/* nailed / missed / splits — collapsible caret groups */
+.dr-groups { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 2px; }
+.dr-grp > summary {
+  cursor: pointer; list-style: none; user-select: none;
+  font-size: 13px; font-weight: 800; padding: 6px 2px;
+}
+.dr-grp > summary::-webkit-details-marker { display: none; }
+.dr-grp > summary::before { content: "▸ "; font-weight: 700; }
+.dr-grp[open] > summary::before { content: "▾ "; }
+.dr-grp.right > summary { color: var(--court); }
+.dr-grp.wrong > summary { color: #9e3535; }
+.dr-grp.split > summary { color: var(--clay-dark); }
 /* cards pack into as many columns as fit, so the section stays short */
-.dr-ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; align-content: start; }
+.dr-ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px; align-content: start; margin-top: 4px; }
 .dr-mrow {
   font-size: 11.5px; line-height: 1.25; padding: 5px 8px; border-radius: 8px; color: var(--ink);
-  min-height: 38px; display: flex; align-items: center; box-sizing: border-box;
+  min-height: 34px; display: flex; align-items: center; box-sizing: border-box; background: #f4f1f8;
 }
-.dr-ublock.right .dr-mrow { background: #eef6f0; }
-.dr-ublock.wrong .dr-mrow { background: #fbeeee; }
+.dr-grp.right .dr-mrow { background: #eef6f0; }
+.dr-grp.wrong .dr-mrow { background: #fbeeee; }
+.dr-grp.split .dr-mrow { background: #f3eefa; }
 .dr-mrow b { font-weight: 800; }
 .dl-def { color: var(--muted); }
+.dl-split { margin-left: auto; font-weight: 800; color: var(--clay-dark); }
 .dr-uempty { color: var(--muted); font-size: 13px; margin: 0; }
 
 .dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -622,6 +639,12 @@ table.lb tr.clickable:hover { background: #faf6ef; }
 table.lb tr.me td { font-weight: 700; }
 table.lb .rank { color: var(--muted); width: 26px; }
 table.lb .total { color: var(--clay-dark); font-weight: 700; }
+table.lb .lb-max { color: var(--muted); }
+/* tighten padding on phones so 6 columns fit */
+@media (max-width: 600px) {
+  table.lb { font-size: 13px; }
+  table.lb th, table.lb td { padding: 8px 4px; }
+}
 
 .leader-crown { color: var(--gold); }
 
