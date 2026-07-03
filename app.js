@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260701-1300';
+import { DRAWS } from './draws.js?v=20260701-1500';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,12 +17,12 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260701-1300';
+const BUILD = '20260701-1500';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
-const TOURNAMENT_DAY = 4;
-const TOURNAMENT_DATE = 'Thursday, July 2';
-const TOURNAMENT_ROUND = 1; // round shown in the recap header (0=R128, 1=R64, 2=R32, …)
+const TOURNAMENT_DAY = 5;
+const TOURNAMENT_DATE = 'Friday, July 3';
+const TOURNAMENT_ROUND = 2; // round shown in the recap header (0=R128, 1=R64, 2=R32, …)
 // "Upcoming Matches to Watch" targets a specific round + half, since the real
 // order of play can't be derived. Update these as the schedule moves on.
 // round: 0=R128, 1=R64, 2=R32, 3=R16, 4=QF, 5=SF, 6=Final;  half: 'top'|'bottom'|'all'
