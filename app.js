@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260701-1100';
+import { DRAWS } from './draws.js?v=20260701-1300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260701-1100';
+const BUILD = '20260701-1300';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 4;
@@ -1472,7 +1472,6 @@ function dailyRecapView() {
 // and the day's two headline beats.
 function shareCardView() {
   const { dateStr } = tournamentDay();
-  const cr = currentRoundIndex();
   const res = state.results;
   const prevRes = state.recapSnapshot
     ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
@@ -1536,7 +1535,7 @@ function shareCardView() {
       <div class="sc-top">
         <div class="sc-emoji">🎾</div>
         <div class="sc-brand">Kiwi House Bracket</div>
-        <div class="sc-meta">Day ${TOURNAMENT_DAY} · ${esc(ROUND_NAMES[cr])} · ${esc(dateStr)}</div>
+        <div class="sc-meta">Day ${TOURNAMENT_DAY} · ${esc(ROUND_NAMES[TOURNAMENT_ROUND])} · ${esc(dateStr)}</div>
       </div>
       <div class="sc-standings">${rows}</div>
       ${beats.length ? `<div class="sc-beats">${beats.join('')}</div>` : ''}
