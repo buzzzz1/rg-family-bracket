@@ -548,6 +548,7 @@ button { font-family: inherit; }
 .dr-mrow b { font-weight: 800; }
 .dl-def { color: var(--muted); }
 .dl-split { margin-left: auto; font-weight: 800; color: var(--clay-dark); }
+.dl-live { margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .dr-uempty { color: var(--muted); font-size: 13px; margin: 0; }
 
 .dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }

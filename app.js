@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260701-1900';
+import { DRAWS } from './draws.js?v=20260705-1400';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260701-1900';
+const BUILD = '20260705-1400';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -325,7 +325,6 @@ function allPlayedMatches() {
 // Returns total picks, correct picks, per-round breakdown, unanimous lists,
 // and the hardest/easiest match for the family.
 function familyStats(entries, matches) {
-  const N = entries.length; // "we all" means all N brackets
   let total = 0, correct = 0;
   const byRound = ROUND_SIZES.map(() => ({ correct: 0, played: 0 }));
   const unanimousCorrect = [], unanimousWrong = [], splits = [];
@@ -351,10 +350,16 @@ function familyStats(entries, matches) {
       else loseC++; // picked the other contender (who lost)
     }
     const loser = (t.winner === cA) ? cB : cA;
-    // "We all" = all N brackets agreed; anything in between is a split.
-    if (winC === N) unanimousCorrect.push({ ...t, loser });
-    else if (loseC === N) unanimousWrong.push({ ...t, loser, familyPick: loser });
-    else if (winC > 0 && loseC > 0) splits.push({ ...t, loser, winC, loseC });
+    // Categorize by everyone who still had a LIVE pick on this match (their
+    // bracket pick was one of the two contenders). People whose pick lost
+    // earlier hold a "dead pick" and have no real opinion here, so they don't
+    // count either way. This keeps matches from vanishing when, in later
+    // rounds, fewer than N brackets still have a horse in the race.
+    if (pickCount > 0) {
+      if (loseC === 0) unanimousCorrect.push({ ...t, loser, winC, loseC, pickCount });
+      else if (winC === 0) unanimousWrong.push({ ...t, loser, familyPick: loser, winC, loseC, pickCount });
+      else splits.push({ ...t, loser, winC, loseC, pickCount });
+    }
     if (pickCount > 0) {
       const rec = { ...t, correctCount: winC, pickCount };
       if (!hardest || winC < hardest.correctCount) hardest = rec;
@@ -1336,13 +1341,18 @@ function dailyRecapView() {
     if (fam.total > 0) {
       const pct = Math.round(fam.correct / fam.total * 100);
       html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
+      const N = raw.length;
+      // When fewer than everyone still had a live pick on a match, note how many
+      // did — so "all nailed it" reads honestly (e.g. 3 of you who still had a
+      // pick), and a "2–1" split doesn't look like it's missing three people.
+      const liveTag = (u) => u.pickCount < N ? ` <span class="dl-live">${u.pickCount}/${N} live</span>` : '';
       const defLine = (u) => { const d = DRAWS[u.event];
-        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}`; };
+        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}${liveTag(u)}`; };
       const splitLine = (u) => { const d = DRAWS[u.event];
-        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))} <span class="dl-split">${u.winC}–${u.loseC}</span>`; };
+        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}${liveTag(u)} <span class="dl-split">${u.winC}–${u.loseC}</span>`; };
       const rows = (items, fn) => `<div class="dr-ul">${items.map(u => `<div class="dr-mrow"><span>${fn(u)}</span></div>`).join('')}</div>`;
-      // Three collapsible groups: all-6 nailed it, all-6 missed, and splits (with
-      // the family's pick count on each side).
+      // Three collapsible groups: everyone-with-a-live-pick nailed it, all missed,
+      // and splits (with the family's pick count on each side).
       const group = (cls, icon, label, items, fn) => items.length
         ? `<details class="dr-grp ${cls}"><summary>${icon} ${label} (${items.length})</summary>${rows(items, fn)}</details>`
         : '';
