@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-1430';
+import { DRAWS } from './draws.js?v=20260705-1600';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-1430';
+const BUILD = '20260705-1600';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -1342,15 +1342,20 @@ function dailyRecapView() {
       const pct = Math.round(fam.correct / fam.total * 100);
       html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
       const N = raw.length;
-      // When fewer than everyone still had a live pick on a match, note how many
-      // did — so "all nailed it" reads honestly (e.g. 3 of you who still had a
-      // pick), and a "2–1" split doesn't look like it's missing three people.
-      const liveTag = (u) => u.pickCount < N ? ` <span class="dl-live">${u.pickCount}/${N} live</span>` : '';
-      const defLine = (u) => { const d = DRAWS[u.event];
-        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}${liveTag(u)}`; };
-      const splitLine = (u) => { const d = DRAWS[u.event];
-        return `<b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}${liveTag(u)} <span class="dl-split">${u.winC}–${u.loseC}</span>`; };
-      const rows = (items, fn) => `<div class="dr-ul">${items.map(u => `<div class="dr-mrow"><span>${fn(u)}</span></div>`).join('')}</div>`;
+      // When fewer than everyone still had a live pick on a match, add a second
+      // line noting how many brackets still had a stake — so "all nailed it"
+      // reads honestly and a "1–4" split doesn't look like it's missing people.
+      const bracketWord = (n) => n === 1 ? 'bracket' : 'brackets';
+      const activeNote = (u, tally) => u.pickCount < N
+        ? `<span class="dl-active">Active in ${u.pickCount} ${bracketWord(u.pickCount)}${tally ? ` (${u.winC}–${u.loseC})` : ''}</span>`
+        : '';
+      const mainLine = (u, extra = '') => { const d = DRAWS[u.event];
+        return `<span class="dl-main"><b>${esc(recapName(d, u.winner))}</b> <span class="dl-def">def.</span> ${esc(recapName(d, u.loser))}${extra}</span>`; };
+      const defLine = (u) => mainLine(u) + activeNote(u, false);
+      // For splits the win–loss tally rides inline only when all N were live;
+      // otherwise it moves into the "Active in X brackets (w–l)" second line.
+      const splitLine = (u) => mainLine(u, u.pickCount < N ? '' : ` <span class="dl-split">${u.winC}–${u.loseC}</span>`) + activeNote(u, true);
+      const rows = (items, fn) => `<div class="dr-ul">${items.map(u => `<div class="dr-mrow">${fn(u)}</div>`).join('')}</div>`;
       // Three collapsible groups: everyone-with-a-live-pick nailed it, all missed,
       // and splits (with the family's pick count on each side).
       const group = (cls, icon, label, items, fn) => items.length

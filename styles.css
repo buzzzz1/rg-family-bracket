@@ -540,15 +540,16 @@ button { font-family: inherit; }
 .dr-ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px; align-content: start; margin-top: 4px; }
 .dr-mrow {
   font-size: 11.5px; line-height: 1.25; padding: 5px 8px; border-radius: 8px; color: var(--ink);
-  min-height: 34px; display: flex; align-items: center; box-sizing: border-box; background: #f4f1f8;
+  min-height: 34px; display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; box-sizing: border-box; background: #f4f1f8;
 }
 .dr-grp.right .dr-mrow { background: #eef6f0; }
 .dr-grp.wrong .dr-mrow { background: #fbeeee; }
 .dr-grp.split .dr-mrow { background: #f3eefa; }
 .dr-mrow b { font-weight: 800; }
 .dl-def { color: var(--muted); }
-.dl-split { margin-left: auto; font-weight: 800; color: var(--clay-dark); }
-.dl-live { margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.dl-split { margin-left: 6px; font-weight: 800; color: var(--clay-dark); }
+.dl-active { margin-top: 2px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
 .dr-uempty { color: var(--muted); font-size: 13px; margin: 0; }
 
 .dr-beat { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
