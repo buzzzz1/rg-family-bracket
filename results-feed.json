@@ -83,7 +83,7 @@
     ["de Minaur", "Mannarino"],
     ["Svajda", "Majchrzak"],
     ["Khachanov", "Hanfmann"],
-    ["Duckworth", "Cobolli"],
+    ["Cobolli", "Duckworth"],
     ["Dimitrov", "Mensik"],
     ["Berrettini", "Fils"],
     ["Bergs", "Faria"],
@@ -91,7 +91,7 @@
     ["Fritz", "Kypson"],
     ["Sonego", "Diallo"],
     ["Tiafoe", "Choinski"],
-    ["Jacquet", "Bublik"],
+    ["Bublik", "Jacquet"],
     ["Lehecka", "Molcan"],
     ["Munar", "Fearnley"],
     ["Giron", "Halys"],
@@ -103,7 +103,15 @@
     ["Auger-Aliassime", "M. Zheng"],
     ["Davidovich Fokina", "Fucsovics"],
     ["Safiullin", "Fonseca"],
-    ["Djokovic", "Rinderknech"]
+    ["Djokovic", "Rinderknech"],
+    ["Cobolli", "Khachanov"],
+    ["de Minaur", "Svajda"],
+    ["Lehecka", "Munar"],
+    ["Fery", "Bergs"],
+    ["Dimitrov", "Berrettini"],
+    ["Fritz", "Sonego"],
+    ["Bublik", "Tiafoe"],
+    ["Zverev", "Giron"]
   ],
   "women": [
     ["Sabalenka", "Kostovic"],
@@ -198,7 +206,7 @@
     ["Keys", "Swan"],
     ["Cirstea", "Birrell"],
     ["Noskova", "Osorio"],
-    ["Shnaider", "Samsonova"],
+    ["Samsonova", "Shnaider"],
     ["Bouzkova", "Grant"],
     ["Mertens", "Timofeeva"],
     ["Rybakina", "McNally"],
@@ -210,6 +218,13 @@
     ["Jovic", "Alexandrova"],
     ["Bencic", "Kalinskaya"],
     ["Gauff", "Liu"],
-    ["Sakkari", "Eala"]
+    ["Eala", "Swiatek"],
+    ["Mertens", "Rybakina"],
+    ["Keys", "Anisimova"],
+    ["Noskova", "Cirstea"],
+    ["Kostyuk", "Navarro"],
+    ["Paolini", "Sakkari"],
+    ["Bouzkova", "Samsonova"],
+    ["Krueger", "Snigur"]
   ]
 }
