@@ -487,8 +487,7 @@ button { font-family: inherit; }
 .watch-row:first-child { border-top: none; }
 .w-ev { flex: 0 0 100%; font-size: 11px; font-weight: 700; color: var(--clay); }
 .w-rd { color: var(--clay); font-weight: 700; }
-.w-court, .w-order { color: var(--muted); font-weight: 600; }
-.w-time { color: var(--clay-dark); font-weight: 800; }
+.w-court, .w-order, .w-time { color: var(--muted); font-weight: 600; }
 .w-sep { color: var(--muted); opacity: .45; margin: 0 6px; }
 .wl-date { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 4px; }
 .w-match { flex: 0 1 auto; min-width: 0; color: var(--ink); font-size: 13px; font-weight: 600; }
