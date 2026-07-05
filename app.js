@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-1930';
+import { DRAWS } from './draws.js?v=20260705-2030';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-1930';
+const BUILD = '20260705-2030';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -29,15 +29,18 @@ const TOURNAMENT_ROUND = 2; // round shown in the recap header (0=R128, 1=R64, 2
 // list to [] on a rest/finished day. Matches drop off automatically once their
 // result is entered, so the panel always shows only what's still to come today.
 const WATCH_DATE = 'Sunday, July 5';
+// Listed in court play-order. `order` is the match's slot on that court; `time`
+// is an estimate (later matches start when the previous one finishes), shown as
+// "Approx.". Names must match draws.js exactly; times are UK local (BST).
 const TODAY_MATCHES = [
-  { ev: 'men',   a: 'J. Sinner',          b: 'S. Mochizuki',         court: 'Centre Court', time: 'from 1:30pm' },
-  { ev: 'women', a: 'A. Sabalenka',       b: 'N. Osaka',             court: 'Centre Court', time: 'from 1:30pm' },
-  { ev: 'men',   a: 'R. Safiullin',       b: 'N. Djokovic',          court: 'Centre Court', time: 'from 1:30pm' },
-  { ev: 'men',   a: 'F. Auger-Aliassime', b: 'A. Davidovich Fokina', court: 'No.1 Court',   time: 'from 1:00pm' },
-  { ev: 'women', a: 'J. Pegula',          b: 'I. Jovic',             court: 'No.1 Court',   time: 'from 1:00pm' },
-  { ev: 'women', a: 'B. Bencic',          b: 'C. Gauff',             court: 'No.1 Court',   time: 'from 1:00pm' },
-  { ev: 'women', a: 'K. Muchova',         b: 'B. Krejcikova',        court: 'No.2 Court',   time: 'from 12:30pm' },
-  { ev: 'men',   a: 'H. Hurkacz',         b: 'JL. Struff',           court: 'No.2 Court',   time: 'follows' },
+  { ev: 'men',   a: 'R. Safiullin',       b: 'N. Djokovic',          court: 'Centre Court', order: '1st on', time: '1:30pm' },
+  { ev: 'women', a: 'A. Sabalenka',       b: 'N. Osaka',             court: 'Centre Court', order: '2nd on', time: '3:30pm' },
+  { ev: 'men',   a: 'J. Sinner',          b: 'S. Mochizuki',         court: 'Centre Court', order: '3rd on', time: '6:00pm' },
+  { ev: 'women', a: 'J. Pegula',          b: 'I. Jovic',             court: 'No.1 Court',   order: '1st on', time: '1:00pm' },
+  { ev: 'men',   a: 'F. Auger-Aliassime', b: 'A. Davidovich Fokina', court: 'No.1 Court',   order: '2nd on', time: '3:00pm' },
+  { ev: 'women', a: 'B. Bencic',          b: 'C. Gauff',             court: 'No.1 Court',   order: '3rd on', time: '5:30pm' },
+  { ev: 'women', a: 'K. Muchova',         b: 'B. Krejcikova',        court: 'No.2 Court',   order: '2nd on', time: '12:30pm' },
+  { ev: 'men',   a: 'H. Hurkacz',         b: 'JL. Struff',           court: 'No.2 Court',   order: '3rd on', time: '3:30pm' },
 ];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
@@ -1189,7 +1192,7 @@ function todaysMatches() {
     const [ca, cb] = matchContenders(state.results[t.ev], r, m);
     if (!((ca === a && cb === b) || (ca === b && cb === a))) continue; // not both through yet
     const res = state.results[t.ev]['r' + r][m];
-    out.push({ ev: t.ev, r, m, a, b, court: t.court, time: t.time,
+    out.push({ ev: t.ev, r, m, a, b, court: t.court, order: t.order, time: t.time,
       played: res !== null && res !== undefined });
   }
   return out;
@@ -1425,7 +1428,7 @@ function dailyRecapView() {
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
-        <div class="w-ev"><span class="w-time">${esc(w.time)}</span><span class="w-court">${esc(w.court)}</span><span class="w-rd">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span></div>
+        <div class="w-ev"><span class="w-rd">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span><span class="w-sep">|</span><span class="w-court">${esc(w.court)}</span><span class="w-sep">|</span><span class="w-order">${esc(w.order)}</span><span class="w-sep">|</span><span class="w-time">Approx. ${esc(w.time)}</span></div>
         <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
         <div class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</div>
       </div>`;
