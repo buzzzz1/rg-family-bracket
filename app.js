@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-1900';
+import { DRAWS } from './draws.js?v=20260705-1930';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-1900';
+const BUILD = '20260705-1930';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -1421,7 +1421,7 @@ function dailyRecapView() {
   // Only today's scheduled matches, still to be played, in schedule order.
   const watch = todaysMatches().filter(w => !w.played);
   if (watch.length) {
-    html += `<div class="panel"><h2>👀 Today's Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · times BST</span></h2><div class="watch-list">`;
+    html += `<div class="panel"><h2>👀 Today's Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · Times in BST</span></h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
