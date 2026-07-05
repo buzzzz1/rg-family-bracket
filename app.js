@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-2030';
+import { DRAWS } from './draws.js?v=20260705-2130';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-2030';
+const BUILD = '20260705-2130';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -112,6 +112,16 @@ const state = {
   shareCard: false,         // true when the screenshot-friendly one-pager is open
   ready: false,
 };
+
+// The top-level tabs, mirrored into the URL hash so a refresh (or a shared
+// link) lands back on the same page instead of resetting to the bracket.
+const VIEWS = ['bracket', 'leaderboard', 'recap', 'commissioner', 'archive'];
+function viewFromHash() {
+  const h = location.hash.replace(/^#/, '');
+  return VIEWS.includes(h) ? h : null;
+}
+// Restore the view from the hash on load, before the first render.
+{ const hv = viewFromHash(); if (hv) state.view = hv; }
 
 // ---------------------------------------------------------------------------
 // Pick helpers
@@ -2292,6 +2302,7 @@ function enterBracket(name, pin) {
   localStorage.setItem('rg26_uid', uid);
   localStorage.setItem('rg26_name', name);
   state.view = 'bracket';
+  history.replaceState(null, '', '#bracket');
   saveMyEntry();
   render();
 }
@@ -2836,7 +2847,7 @@ appEl.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.round = 0; render(); }
+  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.round = 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
   else if (a === 'event') { state.event = el.dataset.event; render(); }
   else if (a === 'round') { state.round = +el.dataset.round; render(); }
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
@@ -2881,6 +2892,13 @@ let _wasMobileFlow = isMobileFlow();
 window.addEventListener('resize', () => {
   const now = isMobileFlow();
   if (now !== _wasMobileFlow) { _wasMobileFlow = now; if (state.ready) render(); }
+});
+
+// Manual URL-hash changes / browser back-forward switch the active tab. (Tab
+// clicks use replaceState, so they don't fire this — no double render.)
+window.addEventListener('hashchange', () => {
+  const v = viewFromHash();
+  if (v && v !== state.view) { state.view = v; state.viewingEntryId = null; state.round = 0; render(); }
 });
 
 // Swipe left/right to move the draw forward/back a round. The bracket pane
