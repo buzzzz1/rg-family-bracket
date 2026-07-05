@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-2200';
+import { DRAWS } from './draws.js?v=20260705-2300';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-2200';
+const BUILD = '20260705-2300';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
@@ -115,13 +115,13 @@ const state = {
 
 // The top-level tabs, mirrored into the URL hash so a refresh (or a shared
 // link) lands back on the same page instead of resetting to the bracket.
-const VIEWS = ['bracket', 'leaderboard', 'recap', 'commissioner', 'archive'];
+const VIEWS = ['bracket', 'draw', 'leaderboard', 'recap', 'commissioner', 'archive'];
 function viewFromHash() {
   const h = location.hash.replace(/^#/, '');
   return VIEWS.includes(h) ? h : null;
 }
 // Restore the view from the hash on load, before the first render.
-{ const hv = viewFromHash(); if (hv) state.view = hv; }
+{ const hv = viewFromHash(); if (hv) { state.view = hv; if (hv === 'draw') state._pendingDrawRound = true; } }
 
 // ---------------------------------------------------------------------------
 // Pick helpers
@@ -2350,6 +2350,7 @@ function render() {
 
   let body;
   if (state.viewingEntryId) body = entryView();
+  else if (state.view === 'draw') body = drawView();
   else if (state.view === 'leaderboard') body = leaderboardView();
   else if (state.view === 'recap') body = recapView();
   else if (state.view === 'commissioner') body = commissionerView();
@@ -2391,6 +2392,7 @@ function header() {
         · <a data-action="new-bracket">not you?</a></div>
       <nav class="tabs">
         ${tab('bracket', 'My Bracket')}
+        ${tab('draw', '🎾 Draw')}
         ${tab('leaderboard', 'Leaderboard')}
         ${tab('recap', '📰 Daily Recap')}
         ${tab('commissioner', 'Commissioner')}
@@ -2660,6 +2662,45 @@ function entryView() {
   return html;
 }
 
+// ---- public draw viewer ----
+// The round that's currently "live": the deepest round with any result, or the
+// next round if that one is already complete in both draws. Used as the Draw
+// page's default landing round so people open on the action, not R128.
+function currentDrawRound() {
+  const anyRes = (ev, r) => state.results[ev]['r' + r].some(v => v !== null && v !== undefined);
+  const allRes = (ev, r) => state.results[ev]['r' + r].every(v => v !== null && v !== undefined);
+  let hi = 0;
+  for (let r = 0; r < 7; r++) if (anyRes('men', r) || anyRes('women', r)) hi = r;
+  if (hi < 6 && allRes('men', hi) && allRes('women', hi)) hi++;
+  return hi;
+}
+
+// Read-only view of the actual draw progressing round by round (winners flow
+// into the next round). Same flow layout as the bracket/commissioner, but not
+// tappable. Tapping the ⓘ opens the player card — which, once brackets are
+// locked, lists who in the pool picked that player and how far.
+function drawView() {
+  // On a fresh load / hash-refresh onto #draw, land on the live round once
+  // results are in (tab clicks already do this via currentDrawRound()).
+  if (state._pendingDrawRound && hasResults()) { state.round = currentDrawRound(); state._pendingDrawRound = false; }
+  const picks = state.results[state.event];
+  let html = `<div class="panel"><h2>🎾 The Draw</h2>
+    <p class="muted small">Follow both draws as the rounds play out. Tap the
+    <span class="info-dot-inline">i</span> on any player for their profile and to
+    see who in the pool picked them.</p>`;
+  html += eventSeg();
+  html += roundSeg(picks);
+  html += `<h2 style="margin-top:12px">${ROUND_NAMES[state.round]} — ${EVENTS.find(e => e[0] === state.event)[1]}</h2>`;
+  html += matchArea(picks, state.event, state.round, null, null);
+  if (state.round === 6) {
+    const champ = picks.r6[0];
+    html += `<div class="champion-box"><div class="lbl">Champion</div>
+      <div class="name${champ !== null ? ' clickable' : ''}"${champ !== null ? ` data-action="info" data-ev="${state.event}" data-slot="${champ}"` : ''}>${champ !== null ? flagImg(DRAWS[state.event], champ) + esc(label(DRAWS[state.event], champ)) : '— not decided —'}</div></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 // ---- commissioner ----
 function commissionerView() {
   if (!state.commish) {
@@ -2847,7 +2888,7 @@ appEl.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.round = 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
+  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.round = el.dataset.view === 'draw' ? currentDrawRound() : 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
   else if (a === 'event') { state.event = el.dataset.event; render(); }
   else if (a === 'round') { state.round = +el.dataset.round; render(); }
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
@@ -2898,7 +2939,11 @@ window.addEventListener('resize', () => {
 // clicks use replaceState, so they don't fire this — no double render.)
 window.addEventListener('hashchange', () => {
   const v = viewFromHash();
-  if (v && v !== state.view) { state.view = v; state.viewingEntryId = null; state.round = 0; render(); }
+  if (v && v !== state.view) {
+    state.view = v; state.viewingEntryId = null;
+    if (v === 'draw') state._pendingDrawRound = true; else state.round = 0;
+    render();
+  }
 });
 
 // Swipe left/right to move the draw forward/back a round. The bracket pane

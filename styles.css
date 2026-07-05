@@ -200,6 +200,13 @@ button { font-family: inherit; }
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .info-dot:hover { background: var(--clay); color: #fff; border-color: var(--clay); }
+/* Inline "i" reference inside body copy (e.g. the Draw page hint). */
+.info-dot-inline {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line);
+  background: #faf6ef; color: var(--clay); vertical-align: middle;
+  font: italic 700 11px/1 Georgia, 'Times New Roman', serif;
+}
 
 /* Swipeable round pane — vertical scrolling stays native (pan-y); horizontal
    drags are delivered to JS so the bracket can follow the finger between rounds. */
