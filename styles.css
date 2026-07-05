@@ -486,6 +486,10 @@ button { font-family: inherit; }
 }
 .watch-row:first-child { border-top: none; }
 .w-ev { flex: 0 0 100%; font-size: 11px; font-weight: 700; color: var(--clay); }
+.w-time { font-weight: 800; color: var(--clay-dark); }
+.w-court { color: var(--muted); font-weight: 600; margin-left: 7px; }
+.w-rd { color: var(--clay); font-weight: 700; margin-left: 7px; }
+.wl-date { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 4px; }
 .w-match { flex: 0 1 auto; min-width: 0; color: var(--ink); font-size: 13px; font-weight: 600; }
 .w-match .flag { width: 15px; height: 11px; margin: 0 3px 0 0; }
 .w-v { color: var(--muted); font-size: 11px; margin: 0 2px; font-weight: 400; }

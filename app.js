@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260705-1730';
+import { DRAWS } from './draws.js?v=20260705-1900';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -17,17 +17,28 @@ const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260705-1730';
+const BUILD = '20260705-1900';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 6;
 const TOURNAMENT_DATE = 'Saturday, July 4';
 const TOURNAMENT_ROUND = 2; // round shown in the recap header (0=R128, 1=R64, 2=R32, …)
-// "Upcoming Matches to Watch" targets a specific round + half, since the real
-// order of play can't be derived. Update these as the schedule moves on.
-// round: 0=R128, 1=R64, 2=R32, 3=R16, 4=QF, 5=SF, 6=Final;  half: 'top'|'bottom'|'all'
-const WATCH_ROUND = 3;
-const WATCH_HALF = 'all';
+// "Matches to Watch" is today's order of play — hand-entered from the official
+// schedule since the real OOP can't be derived from the draw. `a`/`b` names must
+// match draws.js exactly; times are UK local (BST). Update this daily; set the
+// list to [] on a rest/finished day. Matches drop off automatically once their
+// result is entered, so the panel always shows only what's still to come today.
+const WATCH_DATE = 'Sunday, July 5';
+const TODAY_MATCHES = [
+  { ev: 'men',   a: 'J. Sinner',          b: 'S. Mochizuki',         court: 'Centre Court', time: 'from 1:30pm' },
+  { ev: 'women', a: 'A. Sabalenka',       b: 'N. Osaka',             court: 'Centre Court', time: 'from 1:30pm' },
+  { ev: 'men',   a: 'R. Safiullin',       b: 'N. Djokovic',          court: 'Centre Court', time: 'from 1:30pm' },
+  { ev: 'men',   a: 'F. Auger-Aliassime', b: 'A. Davidovich Fokina', court: 'No.1 Court',   time: 'from 1:00pm' },
+  { ev: 'women', a: 'J. Pegula',          b: 'I. Jovic',             court: 'No.1 Court',   time: 'from 1:00pm' },
+  { ev: 'women', a: 'B. Bencic',          b: 'C. Gauff',             court: 'No.1 Court',   time: 'from 1:00pm' },
+  { ev: 'women', a: 'K. Muchova',         b: 'B. Krejcikova',        court: 'No.2 Court',   time: 'from 12:30pm' },
+  { ev: 'men',   a: 'H. Hurkacz',         b: 'JL. Struff',           court: 'No.2 Court',   time: 'follows' },
+];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
 
@@ -1160,31 +1171,28 @@ function matchContenders(res, r, m) {
   return [res['r' + (r - 1)][2 * m], res['r' + (r - 1)][2 * m + 1]];
 }
 
-// The match-index range of the configured watch round/half.
-function watchRange() {
-  const size = ROUND_SIZES[WATCH_ROUND], half = size / 2;
-  if (WATCH_HALF === 'top') return [WATCH_ROUND, 0, half];
-  if (WATCH_HALF === 'bottom') return [WATCH_ROUND, half, size];
-  return [WATCH_ROUND, 0, size];
-}
-
-// Upcoming matchups to watch — the configured round/half (WATCH_ROUND/WATCH_HALF)
-// of matches that are ready (both players known) and not yet played, ranked by
-// star power. Top `perEvent` men's first, then women's.
-function upcomingMatches(perEvent) {
-  const [r, lo, hi] = watchRange();
-  const pick = (ev) => {
-    const draw = DRAWS[ev], res = state.results[ev], out = [];
-    for (let m = lo; m < hi; m++) {
-      if (res['r' + r][m] !== null && res['r' + r][m] !== undefined) continue; // already played
-      const [a, b] = matchContenders(res, r, m);
-      if (a === null || a === undefined || b === null || b === undefined) continue; // not set yet
-      const ba = slotBuzz(draw, a), bb = slotBuzz(draw, b);
-      out.push({ ev, r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
-    }
-    return out.sort((x, y) => y.buzz - x.buzz).slice(0, perEvent);
-  };
-  return [...pick('men'), ...pick('women')];
+// Today's scheduled matchups (from TODAY_MATCHES), resolved to bracket slots and
+// annotated with whether they've been played yet. Skips any entry whose players
+// don't actually meet in the current bracket (bad name / stale schedule).
+function todaysMatches() {
+  const out = [];
+  for (const t of TODAY_MATCHES) {
+    const draw = DRAWS[t.ev];
+    const a = draw.findIndex(p => p && p.name === t.a);
+    const b = draw.findIndex(p => p && p.name === t.b);
+    if (a < 0 || b < 0) continue;
+    // The round where the two slots share a match is where they'd meet.
+    let r = -1;
+    for (let rr = 0; rr < 7; rr++) if (matchOfSlot(a, rr) === matchOfSlot(b, rr)) { r = rr; break; }
+    if (r < 0) continue;
+    const m = matchOfSlot(a, r);
+    const [ca, cb] = matchContenders(state.results[t.ev], r, m);
+    if (!((ca === a && cb === b) || (ca === b && cb === a))) continue; // not both through yet
+    const res = state.results[t.ev]['r' + r][m];
+    out.push({ ev: t.ev, r, m, a, b, court: t.court, time: t.time,
+      played: res !== null && res !== undefined });
+  }
+  return out;
 }
 
 // "A", "A & B", "A, B & C"
@@ -1396,37 +1404,28 @@ function dailyRecapView() {
       // next round (maxD+1). Only worth mentioning if that's beyond just winning
       // this match (maxD > r), otherwise it's the same as "advancing".
       const maxD = Math.max(...pickers.map(e => deepestPick(e, ev, fav)));
+      const lead = N === 1 ? `1 bracket has` : `All ${N} brackets have`;
       if (maxD > r) {
         const farNames = pickers.filter(e => deepestPick(e, ev, fav) === maxD).map(e => e.name);
         const reach = maxD === 6 ? 'lifting the trophy' : `the ${ROUND_NAMES[maxD + 1]}`;
+        if (N === 1) return `${lead} ${esc(draw[fav].name)} advancing — as far as ${reach}.`;
         const who = farNames.length === N ? `all ${N}` : `${farNames.length}`;
         const names = farNames.length === N ? '' : ` (${esc(nameList(farNames))})`;
-        return `All ${N} brackets have ${esc(draw[fav].name)} advancing — ${who} as far as ${reach}${names}.`;
+        return `${lead} ${esc(draw[fav].name)} advancing — ${who} as far as ${reach}${names}.`;
       }
-      return `All ${N} brackets have ${esc(draw[fav].name)} advancing.`;
+      return `${lead} ${esc(draw[fav].name)} advancing.`;
     }
     if (pa === pb) return `A pool coin-flip — split ${pa}–${pb}.`;
     return `The pool leans ${esc(draw[pa > pb ? a : b].name)} (${Math.max(pa, pb)}–${Math.min(pa, pb)}).`;
   };
-  const watch = upcomingMatches(8);
-  // Always feature Serena Williams's next match while she's still alive.
-  const sSlot = DRAWS.women.findIndex(p => p && p.name === 'S. Williams');
-  if (sSlot >= 0) {
-    const r = WATCH_ROUND, wRes = state.results.women, m = matchOfSlot(sSlot, r);
-    const [a, b] = matchContenders(wRes, r, m);
-    const played = wRes['r' + r][m] !== null && wRes['r' + r][m] !== undefined;
-    const serenaIn = a === sSlot || b === sSlot; // she actually reached this match
-    if (!played && serenaIn && a != null && b != null && !watch.some(w => w.ev === 'women' && w.r === r && w.m === m)) {
-      const ba = slotBuzz(DRAWS.women, a), bb = slotBuzz(DRAWS.women, b);
-      watch.push({ ev: 'women', r, m, a, b, buzz: 2 * Math.max(ba, bb) + Math.min(ba, bb) });
-    }
-  }
+  // Only today's scheduled matches, still to be played, in schedule order.
+  const watch = todaysMatches().filter(w => !w.played);
   if (watch.length) {
-    html += `<div class="panel"><h2>👀 Upcoming Matches to Watch</h2><div class="watch-list">`;
+    html += `<div class="panel"><h2>👀 Today's Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · times BST</span></h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       html += `<div class="watch-row">
-        <div class="w-ev">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</div>
+        <div class="w-ev"><span class="w-time">${esc(w.time)}</span><span class="w-court">${esc(w.court)}</span><span class="w-rd">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span></div>
         <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
         <div class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</div>
       </div>`;
