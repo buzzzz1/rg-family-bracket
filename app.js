@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260707-0900';
+import { DRAWS } from './draws.js?v=20260707-1000';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260707-0900';
+const BUILD = '20260707-1000';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
@@ -2671,45 +2671,50 @@ function pointsChartPanel() {
       series[o.pi].rank[d - 1] = rank; series[o.pi].pts[d - 1] = o.v;
     });
   }
-  const W = 360, H = 232, mL = 18, mR = 66, mT = 20, mB = 24;
+  const W = 360, H = 250, mL = 30, mR = 72, mT = 26, mB = 30;
   const pL = mL, pR = W - mR, pT = mT, pB = H - mB;
   const xAt = i => pL + (maxDay <= 1 ? 0 : (i / (maxDay - 1)) * (pR - pL));
   const yAt = rank => pT + ((rank - 1) / Math.max(1, N - 1)) * (pB - pT);
   const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - n % 10 === 10 ? 0 : n % 10)] || 'th');
-  let grid = '';
-  for (let rk = 1; rk <= N; rk++) {
-    const y = yAt(rk);
-    grid += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${pR}" y2="${y.toFixed(1)}" class="lbc-grid"/><text x="${pL - 4}" y="${(y + 3).toFixed(1)}" class="lbc-yl">${rk}</text>`;
+  const lane = (pB - pT) / Math.max(1, N - 1);
+  // Faint alternating lane bands (clamped to the plot) instead of gridlines.
+  let bands = '';
+  for (let rk = 1; rk <= N; rk += 2) {
+    const y0 = Math.max(pT, yAt(rk) - lane / 2), y1 = Math.min(pB, yAt(rk) + lane / 2);
+    bands += `<rect x="${pL}" y="${y0.toFixed(1)}" width="${(pR - pL).toFixed(1)}" height="${(y1 - y0).toFixed(1)}" rx="3" class="lbc-band"/>`;
   }
+  let yl = '';
+  for (let rk = 1; rk <= N; rk++) yl += `<text x="${pL - 9}" y="${(yAt(rk) + 3.2).toFixed(1)}" class="lbc-yl">${ord(rk)}</text>`;
   let xl = '';
-  for (let d = 1; d <= maxDay; d++) xl += `<text x="${xAt(d - 1).toFixed(1)}" y="${pB + 16}" class="lbc-xl">${d}</text>`;
-  let lines = '', dots = '';
+  for (let d = 1; d <= maxDay; d++) xl += `<text x="${xAt(d - 1).toFixed(1)}" y="${pB + 15}" class="lbc-xl">${d}</text>`;
+  // Each line: a surface-colored halo beneath, then the colored stroke — so where
+  // lines cross, one reads as passing cleanly over the other.
+  let paths = '', dots = '';
   series.forEach(s => {
     const pts = s.rank.map((rk, i) => `${xAt(i).toFixed(1)},${yAt(rk).toFixed(1)}`).join(' ');
-    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    s.rank.forEach((rk, i) => {
-      dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(rk).toFixed(1)}" r="3" fill="${s.color}"><title>${esc(s.name)} — ${ord(rk)} on day ${i + 1} (${s.pts[i].toLocaleString()} pts)</title></circle>`;
-    });
+    paths += `<polyline points="${pts}" class="lbc-halo"/>`
+      + `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
+  series.forEach(s => s.rank.forEach((rk, i) => {
+    dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(rk).toFixed(1)}" r="3" fill="${s.color}" class="lbc-dot"><title>${esc(s.name)} — ${ord(rk)} on day ${i + 1} (${s.pts[i].toLocaleString()} pts)</title></circle>`;
+  }));
   const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.rank[maxDay - 1]) }))
     .sort((a, b) => a.y - b.y);
-  const gap = 11;
+  const gap = 12;
   for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < gap) ends[i].y = ends[i - 1].y + gap;
   if (ends.length && ends[ends.length - 1].y > pB) {
     ends[ends.length - 1].y = pB;
     for (let i = ends.length - 2; i >= 0; i--) if (ends[i].y > ends[i + 1].y - gap) ends[i].y = ends[i + 1].y - gap;
   }
   let endLabels = '';
-  ends.forEach(e => { endLabels += `<text x="${pR + 6}" y="${(e.y + 3).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
+  ends.forEach(e => { endLabels += `<circle cx="${pR + 7}" cy="${e.y.toFixed(1)}" r="2.6" fill="${e.color}"/><text x="${pR + 13}" y="${(e.y + 3.2).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
   const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Standings by tournament day">
-    <text x="${pL - 4}" y="11" class="lbc-cap">Place (1 = leader)</text>${grid}${xl}
-    <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 2}" class="lbc-cap" style="text-anchor:middle">Tournament day</text>
-    ${lines}${dots}${endLabels}</svg>`;
-  const legend = `<div class="lbc-legend">${series.map(s =>
-    `<span class="lbc-chip"><span class="lbc-sw" style="background:${s.color}"></span>${esc(s.name)}</span>`).join('')}</div>`;
+    ${bands}${yl}${xl}
+    <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 3}" class="lbc-cap">Tournament day</text>
+    ${paths}${dots}${endLabels}</svg>`;
   return `<div class="panel"><h2>📈 Place over time</h2>
-    <p class="small muted">Each player's standing on every day of play. Tap a dot for their place and points that day.</p>
-    <div class="lbc-wrap">${svg}</div>${legend}</div>`;
+    <p class="small muted">Where each bracket sat in the standings on every day of play. Tap a dot for their place and points.</p>
+    <div class="lbc-wrap">${svg}</div></div>`;
 }
 
 // ---- leaderboard ----
