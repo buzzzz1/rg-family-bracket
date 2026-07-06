@@ -111,7 +111,11 @@
     ["Dimitrov", "Berrettini"],
     ["Fritz", "Sonego"],
     ["Bublik", "Tiafoe"],
-    ["Zverev", "Giron"]
+    ["Zverev", "Giron"],
+    ["Sinner", "Mochizuki"],
+    ["Struff", "Hurkacz"],
+    ["Auger-Aliassime", "Davidovich Fokina"],
+    ["Djokovic", "Safiullin"]
   ],
   "women": [
     ["Sabalenka", "Kostovic"],
@@ -225,6 +229,10 @@
     ["Kostyuk", "Navarro"],
     ["Paolini", "Sakkari"],
     ["Bouzkova", "Samsonova"],
-    ["Krueger", "Snigur"]
+    ["Krueger", "Snigur"],
+    ["Osaka", "Sabalenka"],
+    ["Pegula", "Jovic"],
+    ["Gauff", "Bencic"],
+    ["Muchova", "Krejcikova"]
   ]
 }
