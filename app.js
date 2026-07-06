@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260706-2200';
+import { DRAWS } from './draws.js?v=20260706-2330';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -14,10 +14,13 @@ const ROUND_SHORT = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'Final'];
 // (count halves, points double), so early-round accuracy and a correct
 // champion are weighted equally.
 const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
+// Categorical line colors (dataviz-validated order; assigned to players by a
+// stable key so a person keeps their color regardless of standing).
+const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260706-2200';
+const BUILD = '20260706-2330';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
@@ -188,6 +191,16 @@ function score(picks, results) {
     }
   }
   return { per, total, correct };
+}
+
+// Cumulative points from correct picks in rounds 0..rMax (for the trend chart).
+function scoreThroughRound(picks, results, rMax) {
+  let t = 0;
+  for (let r = 0; r <= rMax; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+    const res = results['r' + r][m];
+    if (res !== null && res !== undefined && picks['r' + r][m] === res) t += ROUND_POINTS[r];
+  }
+  return t;
 }
 
 // How many matches in a draw have a recorded result (the shared denominator).
@@ -2585,6 +2598,72 @@ function bracketView() {
   return html;
 }
 
+// Line chart: each bracket's cumulative points as the rounds (→ days) play out.
+// X = tournament day (each round finishes on a known day); Y = points; one line
+// per player, direct-labeled at the end and in a legend so identity is never
+// color-alone.
+function pointsChartPanel() {
+  const entries = Object.values(state.entries).filter(e => e.name)
+    .sort((a, b) => a.name.localeCompare(b.name)); // stable order → stable colors
+  if (!entries.length) return '';
+  let maxR = -1;
+  for (let r = 0; r < 7; r++)
+    if (EVENTS.some(([ev]) => state.results[ev]['r' + r].some(v => v !== null && v !== undefined))) maxR = r;
+  if (maxR < 0) return ''; // nothing played yet
+  const ROUND_END_DAY = [2, 4, 6, 8, 10, 12, 14];
+  const dayLabels = ['Start', ...Array.from({ length: maxR + 1 }, (_, r) => 'Day ' + ROUND_END_DAY[r])];
+  const series = entries.map((e, i) => {
+    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
+    const vals = [0];
+    for (let r = 0; r <= maxR; r++)
+      vals.push(scoreThroughRound(mp, state.results.men, r) + scoreThroughRound(wp, state.results.women, r));
+    return { name: e.name, color: CHART_COLORS[i % CHART_COLORS.length], vals };
+  });
+  const nPts = maxR + 2; // Start + one point per played round
+  const globalMax = Math.max(1, ...series.map(s => Math.max(...s.vals)));
+  const step = globalMax <= 2500 ? 500 : globalMax <= 5000 ? 1000 : 2000;
+  const maxY = Math.ceil(globalMax / step) * step;
+  const W = 360, H = 240, mL = 42, mR = 62, mT = 14, mB = 26;
+  const pL = mL, pR = W - mR, pT = mT, pB = H - mB;
+  const xAt = i => pL + (nPts <= 1 ? 0 : (i / (nPts - 1)) * (pR - pL));
+  const yAt = v => pB - (v / maxY) * (pB - pT);
+  let grid = '', yl = '';
+  for (let v = 0; v <= maxY; v += step) {
+    const y = yAt(v);
+    grid += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${pR}" y2="${y.toFixed(1)}" class="lbc-grid"/>`;
+    yl += `<text x="${pL - 6}" y="${(y + 3).toFixed(1)}" class="lbc-yl">${v.toLocaleString()}</text>`;
+  }
+  let xl = '';
+  for (let i = 0; i < nPts; i++)
+    xl += `<text x="${xAt(i).toFixed(1)}" y="${pB + 16}" class="lbc-xl">${esc(dayLabels[i])}</text>`;
+  let lines = '', dots = '';
+  series.forEach(s => {
+    const pts = s.vals.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.vals.forEach((v, i) => {
+      dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="2.4" fill="${s.color}"><title>${esc(s.name)} — ${v.toLocaleString()} pts (${esc(dayLabels[i])})</title></circle>`;
+    });
+  });
+  // End labels, spread vertically so they never overlap.
+  const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.vals[s.vals.length - 1]) }))
+    .sort((a, b) => a.y - b.y);
+  const gap = 11;
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < gap) ends[i].y = ends[i - 1].y + gap;
+  if (ends.length && ends[ends.length - 1].y > pB) {
+    ends[ends.length - 1].y = pB;
+    for (let i = ends.length - 2; i >= 0; i--) if (ends[i].y > ends[i + 1].y - gap) ends[i].y = ends[i + 1].y - gap;
+  }
+  let endLabels = '';
+  ends.forEach(e => { endLabels += `<text x="${pR + 5}" y="${(e.y + 3).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Cumulative points over time by player">
+    ${grid}<line x1="${pL}" y1="${pB}" x2="${pR}" y2="${pB}" class="lbc-axis"/>${yl}${xl}${lines}${dots}${endLabels}</svg>`;
+  const legend = `<div class="lbc-legend">${series.map(s =>
+    `<span class="lbc-chip"><span class="lbc-sw" style="background:${s.color}"></span>${esc(s.name)}</span>`).join('')}</div>`;
+  return `<div class="panel"><h2>📈 Points over time</h2>
+    <p class="small muted">Cumulative points as each round finishes. Tap a dot for the exact total.</p>
+    <div class="lbc-wrap">${svg}</div>${legend}</div>`;
+}
+
 // ---- leaderboard ----
 function leaderboardView() {
   const locked = state.config.locked;
@@ -2633,6 +2712,7 @@ function leaderboardView() {
     ? `<p class="small muted">Tap a row to view that bracket.</p>`
     : `<p class="small muted">Other players' picks stay hidden until brackets lock.</p>`;
   html += `</div>`;
+  html += pointsChartPanel();
   return html;
 }
 
@@ -2646,8 +2726,20 @@ function entryView() {
   const sm = score(picks.men, state.results.men);
   const sw = score(picks.women, state.results.women);
 
-  let html = `<div class="panel"><h2>${esc(e.name || 'Bracket')}</h2>`;
-  html += `<button class="btn ghost" data-action="back">← Leaderboard</button>`;
+  // Switcher lists every viewable bracket (all of them once locked, else just
+  // yours) so you can hop between brackets without going back to the leaderboard.
+  const viewable = Object.values(state.entries).filter(x => x.name && (state.config.locked || x.id === state.userId))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  let html = `<div class="panel">
+    <div class="entry-head">
+      <h2 class="entry-title">${esc(e.name || 'Bracket')}</h2>
+      <div class="entry-nav">
+        <select class="entry-switch" data-action="switch-entry" aria-label="View another bracket">
+          ${viewable.map(x => `<option value="${x.id}"${x.id === state.viewingEntryId ? ' selected' : ''}>${esc(x.name)}${x.id === state.userId ? ' (you)' : ''}</option>`).join('')}
+        </select>
+        <button class="btn ghost" data-action="back">← Leaderboard</button>
+      </div>
+    </div>`;
   if (showResults) {
     html += `<div class="banner score" style="margin-top:10px">Men ${sm.total} · Women ${sw.total} · Total ${sm.total + sw.total}</div>`;
   }
@@ -2921,6 +3013,12 @@ appEl.addEventListener('click', e => {
       : 'Hide the wrap-up and go back to showing the Daily Recap page?';
     if (confirm(msg)) setTournamentComplete(now);
   }
+});
+
+// Bracket switcher on the entry view — jump to another person's bracket.
+appEl.addEventListener('change', e => {
+  const el = e.target.closest('[data-action="switch-entry"]');
+  if (el) { state.viewingEntryId = el.value; render(); }
 });
 
 document.addEventListener('keydown', e => {
