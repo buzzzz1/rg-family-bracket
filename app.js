@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260706-2330';
+import { DRAWS } from './draws.js?v=20260707-0900';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260706-2330';
+const BUILD = '20260707-0900';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
@@ -31,19 +31,17 @@ const TOURNAMENT_ROUND = 3; // round shown in the recap header (0=R128, 1=R64, 2
 // match draws.js exactly; times are UK local (BST). Update this daily; set the
 // list to [] on a rest/finished day. Matches drop off automatically once their
 // result is entered, so the panel always shows only what's still to come today.
-const WATCH_DATE = 'Sunday, July 5';
-// Listed in court play-order. `order` is the match's slot on that court; `time`
-// is an estimate (later matches start when the previous one finishes), shown as
-// "Approx.". Names must match draws.js exactly; times are UK local (BST).
+const WATCH_DATE = 'Tuesday, July 7';
+// Featured upcoming matches. `a`/`b` names must match draws.js exactly; the round
+// (R16, QF, …) is derived from where the two players meet. `court`/`order`/`time`
+// are optional schedule bits (UK local / BST). Each match shows a two-sided
+// "if A wins / if B wins" read on what it means for the pool.
 const TODAY_MATCHES = [
-  { ev: 'men',   a: 'R. Safiullin',       b: 'N. Djokovic',          court: 'Centre Court', order: '1st on', time: '1:30pm' },
-  { ev: 'women', a: 'A. Sabalenka',       b: 'N. Osaka',             court: 'Centre Court', order: '2nd on', time: '3:30pm' },
-  { ev: 'men',   a: 'J. Sinner',          b: 'S. Mochizuki',         court: 'Centre Court', order: '3rd on', time: '6:00pm' },
-  { ev: 'women', a: 'J. Pegula',          b: 'I. Jovic',             court: 'No.1 Court',   order: '1st on', time: '1:00pm' },
-  { ev: 'men',   a: 'F. Auger-Aliassime', b: 'A. Davidovich Fokina', court: 'No.1 Court',   order: '2nd on', time: '3:00pm' },
-  { ev: 'women', a: 'B. Bencic',          b: 'C. Gauff',             court: 'No.1 Court',   order: '3rd on', time: '5:30pm' },
-  { ev: 'women', a: 'K. Muchova',         b: 'B. Krejcikova',        court: 'No.2 Court',   order: '2nd on', time: '12:30pm' },
-  { ev: 'men',   a: 'H. Hurkacz',         b: 'JL. Struff',           court: 'No.2 Court',   order: '3rd on', time: '3:30pm' },
+  { ev: 'men',   a: 'J. Lehecka',    b: 'A. Zverev',           court: 'to finish',    order: '',       time: '' },
+  { ev: 'women', a: 'J. Pegula',     b: 'C. Gauff',            court: 'Centre Court', order: '1st on', time: '1:30pm' },
+  { ev: 'men',   a: 'N. Djokovic',   b: 'F. Auger-Aliassime',  court: 'Centre Court', order: '2nd on', time: '' },
+  { ev: 'men',   a: 'J. Sinner',     b: 'JL. Struff',          court: 'No.1 Court',   order: '1st on', time: '1:30pm' },
+  { ev: 'women', a: 'N. Osaka',      b: 'K. Muchova',          court: 'No.1 Court',   order: '2nd on', time: '' },
 ];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
@@ -392,7 +390,8 @@ function familyStats(entries, matches) {
     // earlier hold a "dead pick" and have no real opinion here, so they don't
     // count either way. This keeps matches from vanishing when, in later
     // rounds, fewer than N brackets still have a horse in the race.
-    if (pickCount > 0) {
+    // Need at least two brackets with a live pick — a lone bracket isn't "we all".
+    if (pickCount >= 2) {
       if (loseC === 0) unanimousCorrect.push({ ...t, loser, winC, loseC, pickCount });
       else if (winC === 0) unanimousWrong.push({ ...t, loser, familyPick: loser, winC, loseC, pickCount });
       else splits.push({ ...t, loser, winC, loseC, pickCount });
@@ -1447,13 +1446,49 @@ function dailyRecapView() {
   // Only today's scheduled matches, still to be played, in schedule order.
   const watch = todaysMatches().filter(w => !w.played);
   if (watch.length) {
-    html += `<div class="panel"><h2>👀 Today's Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · Times in BST</span></h2><div class="watch-list">`;
+    // Who benefits if a given player wins this match (and how far they had them).
+    // `otherN` = how many brackets backed the opponent, so a no-backer side reads
+    // "busts all N" only when the opponent truly had everyone.
+    const sideImp = (ev, r, m, slot, otherN) => {
+      const draw = DRAWS[ev];
+      const backers = raw.filter(e => e[ev]['r' + r][m] === slot);
+      if (!backers.length) return otherN === raw.length
+        ? `busts all ${raw.length} brackets` : `no bracket picked ${esc(draw[slot].name)}`;
+      const champs = backers.filter(e => e[ev].r6[0] === slot).map(e => e.name);
+      const who = backers.length === raw.length ? `all ${raw.length} stay alive`
+        : `${esc(nameList(backers.map(e => e.name)))} stay${backers.length === 1 ? 's' : ''} alive`;
+      let tail = '';
+      if (champs.length) tail = ` — ${esc(nameList(champs))} ${champs.length === 1 ? 'has' : 'have'} them winning it all`;
+      else {
+        const deepest = Math.max(...backers.map(e => deepestPick(e, ev, slot)));
+        if (deepest > r) {
+          const dn = backers.filter(e => deepestPick(e, ev, slot) === deepest).map(e => e.name);
+          const reach = deepest === 6 ? 'the title' : deepest === 5 ? 'the final' : `the ${ROUND_NAMES[deepest + 1]}`;
+          tail = ` — ${esc(nameList(dn))} ${dn.length === 1 ? 'has' : 'have'} them reaching ${reach}`;
+        }
+      }
+      return `${who}${tail}`;
+    };
+    const meta = (w) => {
+      const parts = [`<span class="w-rd">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span>`];
+      if (w.court) parts.push(`<span class="w-court">${esc(w.court)}</span>`);
+      if (w.order) parts.push(`<span class="w-order">${esc(w.order)}</span>`);
+      if (w.time) parts.push(`<span class="w-time">Approx. ${esc(w.time)}</span>`);
+      return parts.join('<span class="w-sep">|</span>');
+    };
+    html += `<div class="panel"><h2>👀 Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · Times in BST</span></h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
-      html += `<div class="watch-row">
-        <div class="w-ev"><span class="w-rd">${w.ev === 'men' ? 'M' : 'W'} ${ROUND_SHORT[w.r]}</span><span class="w-sep">|</span><span class="w-court">${esc(w.court)}</span><span class="w-sep">|</span><span class="w-order">${esc(w.order)}</span><span class="w-sep">|</span><span class="w-time">Approx. ${esc(w.time)}</span></div>
+      const nA = raw.filter(e => e[w.ev]['r' + w.r][w.m] === w.a).length;
+      const nB = raw.filter(e => e[w.ev]['r' + w.r][w.m] === w.b).length;
+      const imp = (nA === 0 && nB === 0)
+        ? `<div class="wi-row wi-none">No one in the pool has a pick in this one — no impact on the standings.</div>`
+        : `<div class="wi-row"><span class="wi-if">If ${esc(draw[w.a].name)} wins →</span> ${sideImp(w.ev, w.r, w.m, w.a, nB)}</div>
+           <div class="wi-row"><span class="wi-if">If ${esc(draw[w.b].name)} wins →</span> ${sideImp(w.ev, w.r, w.m, w.b, nA)}</div>`;
+      html += `<div class="watch-row wr-imp">
+        <div class="w-ev">${meta(w)}</div>
         <div class="w-match">${flagImg(draw, w.a)}${esc(recapName(draw, w.a))} <span class="w-v">v</span> ${flagImg(draw, w.b)}${esc(recapName(draw, w.b))}</div>
-        <div class="w-note">${watchNote(w.ev, w.r, w.m, w.a, w.b)}</div>
+        <div class="w-imp">${imp}</div>
       </div>`;
     });
     html += `</div></div>`;
@@ -2598,54 +2633,65 @@ function bracketView() {
   return html;
 }
 
-// Line chart: each bracket's cumulative points as the rounds (→ days) play out.
-// X = tournament day (each round finishes on a known day); Y = points; one line
-// per player, direct-labeled at the end and in a legend so identity is never
-// color-alone.
+// "Place over time" bump chart: each bracket's standing (1st–Nth) on every
+// tournament day. A round is split across two days (top half of the draw one
+// day, bottom half the next), so day = 2·round + top/bottom.
 function pointsChartPanel() {
   const entries = Object.values(state.entries).filter(e => e.name)
     .sort((a, b) => a.name.localeCompare(b.name)); // stable order → stable colors
   if (!entries.length) return '';
-  let maxR = -1;
-  for (let r = 0; r < 7; r++)
-    if (EVENTS.some(([ev]) => state.results[ev]['r' + r].some(v => v !== null && v !== undefined))) maxR = r;
-  if (maxR < 0) return ''; // nothing played yet
-  const ROUND_END_DAY = [2, 4, 6, 8, 10, 12, 14];
-  const dayLabels = ['Start', ...Array.from({ length: maxR + 1 }, (_, r) => 'Day ' + ROUND_END_DAY[r])];
-  const series = entries.map((e, i) => {
-    const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
-    const vals = [0];
-    for (let r = 0; r <= maxR; r++)
-      vals.push(scoreThroughRound(mp, state.results.men, r) + scoreThroughRound(wp, state.results.women, r));
-    return { name: e.name, color: CHART_COLORS[i % CHART_COLORS.length], vals };
-  });
-  const nPts = maxR + 2; // Start + one point per played round
-  const globalMax = Math.max(1, ...series.map(s => Math.max(...s.vals)));
-  const step = globalMax <= 2500 ? 500 : globalMax <= 5000 ? 1000 : 2000;
-  const maxY = Math.ceil(globalMax / step) * step;
-  const W = 360, H = 240, mL = 42, mR = 62, mT = 14, mB = 26;
+  const dayOf = (r, m) => 2 * r + 1 + (m >= ROUND_SIZES[r] / 2 ? 1 : 0);
+  let maxDay = 0;
+  for (const [ev] of EVENTS) for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++)
+    if (state.results[ev]['r' + r][m] !== null && state.results[ev]['r' + r][m] !== undefined)
+      maxDay = Math.max(maxDay, dayOf(r, m));
+  if (maxDay < 1) return ''; // nothing played yet
+  const players = entries.map((e, i) => ({
+    name: e.name, color: CHART_COLORS[i % CHART_COLORS.length],
+    mp: normalizePicks(e.men), wp: normalizePicks(e.women),
+  }));
+  const scoreByDay = (p, D) => {
+    let t = 0;
+    for (const [ev, picks] of [['men', p.mp], ['women', p.wp]])
+      for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        if (dayOf(r, m) > D) continue;
+        const res = state.results[ev]['r' + r][m];
+        if (res !== null && res !== undefined && picks['r' + r][m] === res) t += ROUND_POINTS[r];
+      }
+    return t;
+  };
+  const N = players.length;
+  const series = players.map(p => ({ name: p.name, color: p.color, rank: [], pts: [] }));
+  for (let d = 1; d <= maxDay; d++) {
+    const scored = players.map((p, pi) => ({ pi, v: scoreByDay(p, d) }));
+    const order = scored.slice().sort((a, b) => b.v - a.v);
+    let rank = 0, prev = null;
+    order.forEach((o, idx) => {
+      rank = (prev !== null && o.v === prev) ? rank : idx + 1; prev = o.v;
+      series[o.pi].rank[d - 1] = rank; series[o.pi].pts[d - 1] = o.v;
+    });
+  }
+  const W = 360, H = 232, mL = 18, mR = 66, mT = 20, mB = 24;
   const pL = mL, pR = W - mR, pT = mT, pB = H - mB;
-  const xAt = i => pL + (nPts <= 1 ? 0 : (i / (nPts - 1)) * (pR - pL));
-  const yAt = v => pB - (v / maxY) * (pB - pT);
-  let grid = '', yl = '';
-  for (let v = 0; v <= maxY; v += step) {
-    const y = yAt(v);
-    grid += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${pR}" y2="${y.toFixed(1)}" class="lbc-grid"/>`;
-    yl += `<text x="${pL - 6}" y="${(y + 3).toFixed(1)}" class="lbc-yl">${v.toLocaleString()}</text>`;
+  const xAt = i => pL + (maxDay <= 1 ? 0 : (i / (maxDay - 1)) * (pR - pL));
+  const yAt = rank => pT + ((rank - 1) / Math.max(1, N - 1)) * (pB - pT);
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - n % 10 === 10 ? 0 : n % 10)] || 'th');
+  let grid = '';
+  for (let rk = 1; rk <= N; rk++) {
+    const y = yAt(rk);
+    grid += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${pR}" y2="${y.toFixed(1)}" class="lbc-grid"/><text x="${pL - 4}" y="${(y + 3).toFixed(1)}" class="lbc-yl">${rk}</text>`;
   }
   let xl = '';
-  for (let i = 0; i < nPts; i++)
-    xl += `<text x="${xAt(i).toFixed(1)}" y="${pB + 16}" class="lbc-xl">${esc(dayLabels[i])}</text>`;
+  for (let d = 1; d <= maxDay; d++) xl += `<text x="${xAt(d - 1).toFixed(1)}" y="${pB + 16}" class="lbc-xl">${d}</text>`;
   let lines = '', dots = '';
   series.forEach(s => {
-    const pts = s.vals.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
-    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    s.vals.forEach((v, i) => {
-      dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="2.4" fill="${s.color}"><title>${esc(s.name)} — ${v.toLocaleString()} pts (${esc(dayLabels[i])})</title></circle>`;
+    const pts = s.rank.map((rk, i) => `${xAt(i).toFixed(1)},${yAt(rk).toFixed(1)}`).join(' ');
+    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.rank.forEach((rk, i) => {
+      dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(rk).toFixed(1)}" r="3" fill="${s.color}"><title>${esc(s.name)} — ${ord(rk)} on day ${i + 1} (${s.pts[i].toLocaleString()} pts)</title></circle>`;
     });
   });
-  // End labels, spread vertically so they never overlap.
-  const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.vals[s.vals.length - 1]) }))
+  const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.rank[maxDay - 1]) }))
     .sort((a, b) => a.y - b.y);
   const gap = 11;
   for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < gap) ends[i].y = ends[i - 1].y + gap;
@@ -2654,13 +2700,15 @@ function pointsChartPanel() {
     for (let i = ends.length - 2; i >= 0; i--) if (ends[i].y > ends[i + 1].y - gap) ends[i].y = ends[i + 1].y - gap;
   }
   let endLabels = '';
-  ends.forEach(e => { endLabels += `<text x="${pR + 5}" y="${(e.y + 3).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
-  const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Cumulative points over time by player">
-    ${grid}<line x1="${pL}" y1="${pB}" x2="${pR}" y2="${pB}" class="lbc-axis"/>${yl}${xl}${lines}${dots}${endLabels}</svg>`;
+  ends.forEach(e => { endLabels += `<text x="${pR + 6}" y="${(e.y + 3).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Standings by tournament day">
+    <text x="${pL - 4}" y="11" class="lbc-cap">Place (1 = leader)</text>${grid}${xl}
+    <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 2}" class="lbc-cap" style="text-anchor:middle">Tournament day</text>
+    ${lines}${dots}${endLabels}</svg>`;
   const legend = `<div class="lbc-legend">${series.map(s =>
     `<span class="lbc-chip"><span class="lbc-sw" style="background:${s.color}"></span>${esc(s.name)}</span>`).join('')}</div>`;
-  return `<div class="panel"><h2>📈 Points over time</h2>
-    <p class="small muted">Cumulative points as each round finishes. Tap a dot for the exact total.</p>
+  return `<div class="panel"><h2>📈 Place over time</h2>
+    <p class="small muted">Each player's standing on every day of play. Tap a dot for their place and points that day.</p>
     <div class="lbc-wrap">${svg}</div>${legend}</div>`;
 }
 
