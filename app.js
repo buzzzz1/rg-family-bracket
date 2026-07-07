@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260707-1000';
+import { DRAWS } from './draws.js?v=20260707-1200';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260707-1000';
+const BUILD = '20260707-1200';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
@@ -2712,7 +2712,7 @@ function pointsChartPanel() {
     ${bands}${yl}${xl}
     <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 3}" class="lbc-cap">Tournament day</text>
     ${paths}${dots}${endLabels}</svg>`;
-  return `<div class="panel"><h2>📈 Place over time</h2>
+  return `<div class="panel"><h2>📈 Place Over Time</h2>
     <p class="small muted">Where each bracket sat in the standings on every day of play. Tap a dot for their place and points.</p>
     <div class="lbc-wrap">${svg}</div></div>`;
 }
