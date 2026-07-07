@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260707-1200';
+import { DRAWS } from './draws.js?v=20260707-1400';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -20,12 +20,26 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260707-1200';
+const BUILD = '20260707-1400';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
 const TOURNAMENT_DATE = 'Monday, July 6';
 const TOURNAMENT_ROUND = 3; // round shown in the recap header (0=R128, 1=R64, 2=R32, 3=R16, …)
+// The matches actually played on the recap's day (its order of play), hand-entered
+// so the recap — points for the day, highlights, and who fell — is scoped to
+// exactly that day's matches (not inferred). Names must match draws.js exactly;
+// the round is derived. Update this together with the day/date above.
+const RECAP_DAY_MATCHES = [
+  { ev: 'men',   a: 'A. de Minaur', b: 'F. Cobolli' },
+  { ev: 'men',   a: 'G. Dimitrov',  b: 'A. Fery' },
+  { ev: 'men',   a: 'T. Fritz',     b: 'A. Bublik' },
+  { ev: 'men',   a: 'J. Lehecka',   b: 'A. Zverev' },
+  { ev: 'women', a: 'A. Krueger',   b: 'M. Kostyuk' },
+  { ev: 'women', a: 'J. Paolini',   b: 'A. Eala' },
+  { ev: 'women', a: 'M. Keys',      b: 'L. Noskova' },
+  { ev: 'women', a: 'M. Bouzkova',  b: 'E. Mertens' },
+];
 // "Matches to Watch" is today's order of play — hand-entered from the official
 // schedule since the real OOP can't be derived from the draw. `a`/`b` names must
 // match draws.js exactly; times are UK local (BST). Update this daily; set the
@@ -1254,6 +1268,29 @@ function fallenSeeds(ev) {
   return out.sort((x, y) => x.seed - y.seed);
 }
 
+// Resolve RECAP_DAY_MATCHES (the day's order of play) to played matches with a
+// winner: {event, r, m, winner, loser}. Skips any not yet played or not actually
+// in the bracket, so the recap covers exactly that day's results.
+function recapDayMatches() {
+  const out = [];
+  for (const t of RECAP_DAY_MATCHES) {
+    const draw = DRAWS[t.ev];
+    const a = draw.findIndex(p => p && p.name === t.a);
+    const b = draw.findIndex(p => p && p.name === t.b);
+    if (a < 0 || b < 0) continue;
+    let r = -1;
+    for (let rr = 0; rr < 7; rr++) if (matchOfSlot(a, rr) === matchOfSlot(b, rr)) { r = rr; break; }
+    if (r < 0) continue;
+    const m = matchOfSlot(a, r);
+    const [ca, cb] = matchContenders(state.results[t.ev], r, m);
+    if (!((ca === a && cb === b) || (ca === b && cb === a))) continue; // players don't actually meet here
+    const w = state.results[t.ev]['r' + r][m];
+    if (w === null || w === undefined) continue; // not played yet
+    out.push({ event: t.ev, r, m, winner: w, loser: w === a ? b : a });
+  }
+  return out;
+}
+
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
 // Same beats as the shareable text recap (generateRecapText), rendered as a page.
 function dailyRecapView() {
@@ -1263,11 +1300,12 @@ function dailyRecapView() {
     <div class="dh-date">${esc(dateStr)}</div>
   </div>`;
 
-  // Snapshot results = where things stood at the last recap "advance", so we can
-  // show movement and today's points gained.
-  const prevRes = state.recapSnapshot
-    ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
-    : { men: emptyPicks(), women: emptyPicks() };
+  // The day's matches (from its order of play) drive everything below. "Before
+  // today" = current results with those matches removed, so movement and points
+  // gained reflect exactly this day — independent of any checkpoint.
+  const dayMatches = recapDayMatches();
+  const prevRes = { men: normalizePicks(state.results.men), women: normalizePicks(state.results.women) };
+  for (const t of dayMatches) prevRes[t.event]['r' + t.r][t.m] = null;
 
   const totalPlayed = playedCount(state.results.men) + playedCount(state.results.women);
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
@@ -1282,10 +1320,9 @@ function dailyRecapView() {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Today's deltas since the last recap snapshot — shared by Leaders + Highlights.
-  const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
-  const todayAll = [...diffTodayMatches(state.results.men, snap.men, 'men'),
-                    ...diffTodayMatches(state.results.women, snap.women, 'women')];
+  // Today's matches = the day's order of play — shared by Leaders + Highlights.
+  const snap = prevRes; // "before today" state, used for champion-down / movement
+  const todayAll = dayMatches;
   const todayPoints = {}, todayCorrect = {};
   raw.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
   for (const t of todayAll) for (const e of raw) {
@@ -1494,28 +1531,18 @@ function dailyRecapView() {
     html += `</div></div>`;
   }
 
-  // Fallen seeds — a 1-32 seed map, then Day 2's casualties, with earlier days
-  // tucked behind a caret. A seed is "Day 2" if it fell in a Day-2 match.
-  const day2Set = new Set(todayAll.map(t => `${t.event}:${t.r}:${t.m}`));
-  const seedMap = (ev) => {
-    const alive = aliveSeedSet(ev);
-    let g = '<div class="seed-grid">';
-    for (let n = 1; n <= 32; n++) g += `<span class="seed-chip${alive.has(n) ? '' : ' out'}">${n}</span>`;
-    return g + '</div>';
-  };
+  // Seeds out today — only the seeds that fell in this day's matches.
   const fList = (items) => `<ul class="fs-list">${items.map(s =>
-    `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">${ROUND_SHORT[s.r]} · lost to ${esc(s.by)}</span></li>`).join('')}</ul>`;
+    `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">lost to ${esc(s.by)}</span></li>`).join('')}</ul>`;
   const fColumn = (ev, lbl) => {
-    const all = fallenSeeds(ev);
-    const day2 = all.filter(s => day2Set.has(`${ev}:${s.r}:${s.m}`));
-    const prior = all.filter(s => !day2Set.has(`${ev}:${s.r}:${s.m}`));
-    const body = day2.length ? fList(day2) : `<p class="muted small" style="margin:0">None today.</p>`;
-    const earlier = prior.length
-      ? `<details class="fs-more"><summary>Earlier fallers (${prior.length})</summary>${fList(prior)}</details>`
-      : '';
-    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${body}${earlier}</div>`;
+    const draw = DRAWS[ev];
+    const fell = dayMatches.filter(t => t.event === ev)
+      .map(t => ({ seed: draw[t.loser].seed, name: draw[t.loser].name, by: draw[t.winner].name }))
+      .filter(x => x.seed).sort((a, b) => a.seed - b.seed);
+    const body = fell.length ? fList(fell) : `<p class="muted small" style="margin:0">No seeds fell.</p>`;
+    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${body}</div>`;
   };
-  html += `<div class="panel"><h2>📉 Fallen Seeds</h2><div class="fallen2">
+  html += `<div class="panel"><h2>📉 Seeds Out Today</h2><div class="fallen2">
     ${fColumn('men', 'Men')}
     ${fColumn('women', 'Women')}
   </div></div>`;
@@ -2695,8 +2722,11 @@ function pointsChartPanel() {
     paths += `<polyline points="${pts}" class="lbc-halo"/>`
       + `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
-  series.forEach(s => s.rank.forEach((rk, i) => {
-    dots += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(rk).toFixed(1)}" r="3" fill="${s.color}" class="lbc-dot"><title>${esc(s.name)} — ${ord(rk)} on day ${i + 1} (${s.pts[i].toLocaleString()} pts)</title></circle>`;
+  series.forEach((s, si) => s.rank.forEach((rk, i) => {
+    const cx = xAt(i), cy = yAt(rk), key = si + '-' + i;
+    const tip = `${s.name}: ${ord(rk)} · ${s.pts[i].toLocaleString()} pts (day ${i + 1})`;
+    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="${s.color}" class="lbc-dot"/>`
+      + `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="transparent" class="lbc-hit" data-action="chart-pt" data-key="${key}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" data-tip="${esc(tip)}"/>`;
   }));
   const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.rank[maxDay - 1]) }))
     .sort((a, b) => a.y - b.y);
@@ -2708,10 +2738,20 @@ function pointsChartPanel() {
   }
   let endLabels = '';
   ends.forEach(e => { endLabels += `<circle cx="${pR + 7}" cy="${e.y.toFixed(1)}" r="2.6" fill="${e.color}"/><text x="${pR + 13}" y="${(e.y + 3.2).toFixed(1)}" class="lbc-end" fill="${e.color}">${esc(e.name)}</text>`; });
+  // Tap tooltip (mobile-friendly) — SVG <title> only shows on desktop hover.
+  let tipEl = '';
+  if (state.chartTip) {
+    const { cx, cy, text } = state.chartTip;
+    const w = Math.max(56, text.length * 4.3 + 12), h = 15;
+    let tx = Math.max(2, Math.min(cx - w / 2, W - w - 2));
+    let ty = cy - h - 6; if (ty < 2) ty = cy + 8;
+    tipEl = `<g class="lbc-tip"><rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="4"/>`
+      + `<text x="${(tx + w / 2).toFixed(1)}" y="${(ty + 10.2).toFixed(1)}">${esc(text)}</text></g>`;
+  }
   const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Standings by tournament day">
     ${bands}${yl}${xl}
     <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 3}" class="lbc-cap">Tournament day</text>
-    ${paths}${dots}${endLabels}</svg>`;
+    ${paths}${dots}${endLabels}${tipEl}</svg>`;
   return `<div class="panel"><h2>📈 Place Over Time</h2>
     <p class="small muted">Where each bracket sat in the standings on every day of play. Tap a dot for their place and points.</p>
     <div class="lbc-wrap">${svg}</div></div>`;
@@ -3033,7 +3073,13 @@ appEl.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.round = el.dataset.view === 'draw' ? currentDrawRound() : 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
+  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.chartTip = null; state.round = el.dataset.view === 'draw' ? currentDrawRound() : 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
+  else if (a === 'chart-pt') {
+    const key = el.dataset.key;
+    state.chartTip = (state.chartTip && state.chartTip.key === key)
+      ? null : { key, cx: +el.dataset.cx, cy: +el.dataset.cy, text: el.dataset.tip };
+    render();
+  }
   else if (a === 'event') { state.event = el.dataset.event; render(); }
   else if (a === 'round') { state.round = +el.dataset.round; render(); }
   else if (a === 'pick') { doPick(+el.dataset.r, +el.dataset.m, +el.dataset.slot); }
