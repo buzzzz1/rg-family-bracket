@@ -1,6 +1,6 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260707-1400';
+import { DRAWS } from './draws.js?v=20260707-1600';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260707-1400';
+const BUILD = '20260707-1600';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 8;
@@ -2660,6 +2660,100 @@ function bracketView() {
   return html;
 }
 
+// Brute-force each bracket's path to finishing #1 from the current results.
+// Returns per-entry canWin + the conditions forced in EVERY outcome where they
+// end at least tied for 1st. Guards against combinatorial blow-up early on.
+function pathToFirst() {
+  const ents = Object.values(state.entries).filter(e => e.name)
+    .map(e => ({ id: e.id, name: e.name, men: normalizePicks(e.men), women: normalizePicks(e.women) }));
+  if (ents.length < 2) return null;
+  const bank = {};
+  ents.forEach(e => bank[e.id] = score(e.men, state.results.men).total + score(e.women, state.results.women).total);
+  const enumerate = (ev) => {
+    const work = {}; for (let r = 0; r < 7; r++) work['r' + r] = state.results[ev]['r' + r].slice();
+    const u = [];
+    for (let r = 3; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++)
+      if (work['r' + r][m] === null || work['r' + r][m] === undefined) u.push([r, m]);
+    const out = [];
+    const rec = (i) => {
+      if (i === u.length) { out.push(u.map(([r, m]) => work['r' + r][m])); return; }
+      const [r, m] = u[i];
+      const a = work['r' + (r - 1)][2 * m], b = work['r' + (r - 1)][2 * m + 1];
+      const opts = (a === null || a === undefined || b === null || b === undefined) ? [] : [a, b];
+      for (const w of opts) { work['r' + r][m] = w; rec(i + 1); }
+      work['r' + r][m] = null;
+    };
+    rec(0);
+    return { u, out };
+  };
+  const men = enumerate('men'), women = enumerate('women');
+  if (!men.out.length || !women.out.length) return null;
+  if (men.out.length * women.out.length > 300000) return { tooEarly: true };
+  const deltas = (enu, ev) => enu.out.map(assign => {
+    const d = {};
+    ents.forEach(e => { let t = 0; enu.u.forEach(([r, m], i) => { if (e[ev]['r' + r][m] === assign[i]) t += ROUND_POINTS[r]; }); d[e.id] = t; });
+    return d;
+  });
+  const mD = deltas(men, 'men'), wD = deltas(women, 'women');
+  const res = {}; ents.forEach(e => res[e.id] = { canWin: false, winCount: 0, forced: null });
+  const total = men.out.length * women.out.length;
+  for (let mi = 0; mi < men.out.length; mi++) {
+    for (let wi = 0; wi < women.out.length; wi++) {
+      let best = -Infinity; const fin = {};
+      ents.forEach(e => { const f = bank[e.id] + mD[mi][e.id] + wD[wi][e.id]; fin[e.id] = f; if (f > best) best = f; });
+      const leaders = ents.filter(e => fin[e.id] === best);
+      for (const L of leaders) {
+        const r = res[L.id]; r.canWin = true; r.winCount++;
+        const assign = {};
+        men.u.forEach(([rr, mm], i) => assign['men:' + rr + ':' + mm] = men.out[mi][i]);
+        women.u.forEach(([rr, mm], i) => assign['women:' + rr + ':' + mm] = women.out[wi][i]);
+        if (r.forced === null) r.forced = assign;
+        else for (const k in r.forced) if (r.forced[k] !== assign[k]) delete r.forced[k];
+      }
+    }
+  }
+  return { ents, bank, res, total };
+}
+
+// Turn a set of forced match outcomes into short human phrases.
+function describeForced(forced) {
+  return Object.entries(forced).map(([k, w]) => { const p = k.split(':'); return { ev: p[0], r: +p[1], m: +p[2], w }; })
+    .sort((a, b) => a.r - b.r || a.ev.localeCompare(b.ev))
+    .map(({ ev, r, m, w }) => {
+      const draw = DRAWS[ev];
+      if (r === 6) return `${draw[w].name} wins the title`;
+      if (r === 5) return `${draw[w].name} reaches the final`;
+      const [a, b] = matchContenders(state.results[ev], r, m);
+      const opp = (a === w) ? b : a;
+      if (opp !== null && opp !== undefined) return `${draw[w].name} beats ${draw[opp].name}`;
+      return `${draw[w].name} wins its ${ROUND_SHORT[r]}`;
+    });
+}
+
+// Panel: what each bracket needs to finish #1, ordered by current standing.
+function pathPanel() {
+  const P = pathToFirst();
+  if (!P) return '';
+  if (P.tooEarly) return `<div class="panel"><h2>🏆 Path to the Final</h2>
+    <p class="small muted">Too many matches left to call — the scenarios sharpen up after the quarterfinals.</p></div>`;
+  const { ents, bank, res, total } = P;
+  const order = ents.slice().sort((a, b) => bank[b.id] - bank[a.id] || a.name.localeCompare(b.name));
+  const rows = order.map((e, i) => {
+    const r = res[e.id]; let body, cls = '';
+    if (!r.canWin) { body = 'Eliminated — can no longer finish 1st.'; cls = 'ptf-out'; }
+    else if (r.winCount / total >= 0.5) { body = 'In control — finishes 1st in most remaining outcomes.'; cls = 'ptf-lead'; }
+    else {
+      const conds = describeForced(r.forced || {});
+      body = conds.length ? `Needs: ${esc(conds.join('; '))}.` : 'Needs several results to break their way.';
+      if (r.winCount / total < 0.1) body += ' <span class="ptf-ls">(long shot)</span>';
+    }
+    return `<div class="ptf-row ${cls}"><div class="ptf-name">${i + 1}. ${esc(e.name)}</div><div class="ptf-body">${body}</div></div>`;
+  });
+  return `<div class="panel"><h2>🏆 Path to the Final</h2>
+    <p class="small muted">What each bracket needs to finish #1 — recomputed from every remaining outcome.</p>
+    ${rows.join('')}</div>`;
+}
+
 // "Place over time" bump chart: each bracket's standing (1st–Nth) on every
 // tournament day. A round is split across two days (top half of the draw one
 // day, bottom half the next), so day = 2·round + top/bottom.
@@ -2806,6 +2900,7 @@ function leaderboardView() {
     : `<p class="small muted">Other players' picks stay hidden until brackets lock.</p>`;
   html += `</div>`;
   html += pointsChartPanel();
+  html += pathPanel();
   return html;
 }
 
