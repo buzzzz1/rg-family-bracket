@@ -2756,40 +2756,39 @@ function pointsChartPanel() {
   const entries = Object.values(state.entries).filter(e => e.name)
     .sort((a, b) => a.name.localeCompare(b.name)); // stable order → stable colors
   if (!entries.length) return '';
-  const dayOf = (r, m) => 2 * r + 1 + (m >= ROUND_SIZES[r] / 2 ? 1 : 0);
-  let maxDay = 0;
-  for (const [ev] of EVENTS) for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++)
-    if (state.results[ev]['r' + r][m] !== null && state.results[ev]['r' + r][m] !== undefined)
-      maxDay = Math.max(maxDay, dayOf(r, m));
-  if (maxDay < 1) return ''; // nothing played yet
+  const RLABEL = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'];
+  // X-axis = rounds actually played, in order of play. The standing at each round
+  // is the cumulative score once that round's results are in — so a round that's
+  // already been played keeps its placement and never re-shuffles as later rounds
+  // are entered. (The old version guessed a calendar "day" per match by splitting
+  // each round in half; that guess is what made prior points drift.)
+  let maxRound = -1;
+  for (const [ev] of EVENTS) for (let r = 0; r < 7; r++)
+    if (state.results[ev]['r' + r].some(v => v !== null && v !== undefined))
+      maxRound = Math.max(maxRound, r);
+  if (maxRound < 0) return ''; // nothing played yet
   const players = entries.map((e, i) => ({
     name: e.name, color: CHART_COLORS[i % CHART_COLORS.length],
     mp: normalizePicks(e.men), wp: normalizePicks(e.women),
   }));
-  const scoreByDay = (p, D) => {
-    let t = 0;
-    for (const [ev, picks] of [['men', p.mp], ['women', p.wp]])
-      for (let r = 0; r < 7; r++) for (let m = 0; m < ROUND_SIZES[r]; m++) {
-        if (dayOf(r, m) > D) continue;
-        const res = state.results[ev]['r' + r][m];
-        if (res !== null && res !== undefined && picks['r' + r][m] === res) t += ROUND_POINTS[r];
-      }
-    return t;
-  };
+  const scoreAt = (p, r) =>
+    scoreThroughRound(p.mp, state.results.men, r) +
+    scoreThroughRound(p.wp, state.results.women, r);
+  const nCk = maxRound + 1; // one checkpoint per played round
   const N = players.length;
   const series = players.map(p => ({ name: p.name, color: p.color, rank: [], pts: [] }));
-  for (let d = 1; d <= maxDay; d++) {
-    const scored = players.map((p, pi) => ({ pi, v: scoreByDay(p, d) }));
+  for (let r = 0; r <= maxRound; r++) {
+    const scored = players.map((p, pi) => ({ pi, v: scoreAt(p, r) }));
     const order = scored.slice().sort((a, b) => b.v - a.v);
     let rank = 0, prev = null;
     order.forEach((o, idx) => {
       rank = (prev !== null && o.v === prev) ? rank : idx + 1; prev = o.v;
-      series[o.pi].rank[d - 1] = rank; series[o.pi].pts[d - 1] = o.v;
+      series[o.pi].rank[r] = rank; series[o.pi].pts[r] = o.v;
     });
   }
   const W = 360, H = 250, mL = 30, mR = 72, mT = 26, mB = 30;
   const pL = mL, pR = W - mR, pT = mT, pB = H - mB;
-  const xAt = i => pL + (maxDay <= 1 ? 0 : (i / (maxDay - 1)) * (pR - pL));
+  const xAt = i => pL + (nCk <= 1 ? 0 : (i / (nCk - 1)) * (pR - pL));
   const yAt = rank => pT + ((rank - 1) / Math.max(1, N - 1)) * (pB - pT);
   const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - n % 10 === 10 ? 0 : n % 10)] || 'th');
   const lane = (pB - pT) / Math.max(1, N - 1);
@@ -2802,7 +2801,7 @@ function pointsChartPanel() {
   let yl = '';
   for (let rk = 1; rk <= N; rk++) yl += `<text x="${pL - 9}" y="${(yAt(rk) + 3.2).toFixed(1)}" class="lbc-yl">${ord(rk)}</text>`;
   let xl = '';
-  for (let d = 1; d <= maxDay; d++) xl += `<text x="${xAt(d - 1).toFixed(1)}" y="${pB + 15}" class="lbc-xl">${d}</text>`;
+  for (let r = 0; r <= maxRound; r++) xl += `<text x="${xAt(r).toFixed(1)}" y="${pB + 15}" class="lbc-xl">${RLABEL[r]}</text>`;
   // Each line: a surface-colored halo beneath, then the colored stroke — so where
   // lines cross, one reads as passing cleanly over the other.
   let paths = '', dots = '';
@@ -2813,11 +2812,11 @@ function pointsChartPanel() {
   });
   series.forEach((s, si) => s.rank.forEach((rk, i) => {
     const cx = xAt(i), cy = yAt(rk), key = si + '-' + i;
-    const tip = `${s.name}: ${ord(rk)} · ${s.pts[i].toLocaleString()} pts (day ${i + 1})`;
+    const tip = `${s.name}: ${ord(rk)} · ${s.pts[i].toLocaleString()} pts (${RLABEL[i]})`;
     dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="${s.color}" class="lbc-dot"/>`
       + `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="transparent" class="lbc-hit" data-action="chart-pt" data-key="${key}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" data-tip="${esc(tip)}"/>`;
   }));
-  const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.rank[maxDay - 1]) }))
+  const ends = series.map(s => ({ name: s.name, color: s.color, y: yAt(s.rank[maxRound]) }))
     .sort((a, b) => a.y - b.y);
   const gap = 12;
   for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < gap) ends[i].y = ends[i - 1].y + gap;
@@ -2837,12 +2836,12 @@ function pointsChartPanel() {
     tipEl = `<g class="lbc-tip"><rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="4"/>`
       + `<text x="${(tx + w / 2).toFixed(1)}" y="${(ty + 10.2).toFixed(1)}">${esc(text)}</text></g>`;
   }
-  const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Standings by tournament day">
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="lbc-svg" role="img" aria-label="Standings by round of play">
     ${bands}${yl}${xl}
-    <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 3}" class="lbc-cap">Tournament day</text>
+    <text x="${((pL + pR) / 2).toFixed(0)}" y="${H - 3}" class="lbc-cap">Round</text>
     ${paths}${dots}${endLabels}${tipEl}</svg>`;
   return `<div class="panel"><h2>📈 Place Over Time</h2>
-    <p class="small muted">Where each bracket sat in the standings on every day of play. Tap a dot for their place and points.</p>
+    <p class="small muted">Where each bracket sat after each round of play, in order. Once a round is done its placement is locked in. Tap a dot for the place and points.</p>
     <div class="lbc-wrap">${svg}</div></div>`;
 }
 
