@@ -20,42 +20,37 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260707-1600';
+const BUILD = '20260708-1230';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
-const TOURNAMENT_DAY = 8;
-const TOURNAMENT_DATE = 'Monday, July 6';
-const TOURNAMENT_ROUND = 3; // round shown in the recap header (0=R128, 1=R64, 2=R32, 3=R16, …)
+const TOURNAMENT_DAY = 10;
+const TOURNAMENT_DATE = 'Wednesday, July 8';
+const TOURNAMENT_ROUND = 4; // round shown in the recap header (0=R128, 1=R64, 2=R32, 3=R16, 4=QF, …)
 // The matches actually played on the recap's day (its order of play), hand-entered
 // so the recap — points for the day, highlights, and who fell — is scoped to
 // exactly that day's matches (not inferred). Names must match draws.js exactly;
 // the round is derived. Update this together with the day/date above.
 const RECAP_DAY_MATCHES = [
-  { ev: 'men',   a: 'A. de Minaur', b: 'F. Cobolli' },
-  { ev: 'men',   a: 'G. Dimitrov',  b: 'A. Fery' },
-  { ev: 'men',   a: 'T. Fritz',     b: 'A. Bublik' },
-  { ev: 'men',   a: 'J. Lehecka',   b: 'A. Zverev' },
-  { ev: 'women', a: 'A. Krueger',   b: 'M. Kostyuk' },
-  { ev: 'women', a: 'J. Paolini',   b: 'A. Eala' },
-  { ev: 'women', a: 'M. Keys',      b: 'L. Noskova' },
-  { ev: 'women', a: 'M. Bouzkova',  b: 'E. Mertens' },
+  { ev: 'men',   a: 'F. Cobolli',  b: 'A. Fery' },
+  { ev: 'men',   a: 'T. Fritz',    b: 'A. Zverev' },
+  { ev: 'women', a: 'M. Kostyuk',  b: 'J. Paolini' },
+  { ev: 'women', a: 'L. Noskova',  b: 'E. Mertens' },
 ];
 // "Matches to Watch" is today's order of play — hand-entered from the official
 // schedule since the real OOP can't be derived from the draw. `a`/`b` names must
 // match draws.js exactly; times are UK local (BST). Update this daily; set the
 // list to [] on a rest/finished day. Matches drop off automatically once their
 // result is entered, so the panel always shows only what's still to come today.
-const WATCH_DATE = 'Tuesday, July 7';
+const WATCH_DATE = 'Semifinals — Thursday & Friday';
 // Featured upcoming matches. `a`/`b` names must match draws.js exactly; the round
 // (R16, QF, …) is derived from where the two players meet. `court`/`order`/`time`
 // are optional schedule bits (UK local / BST). Each match shows a two-sided
 // "if A wins / if B wins" read on what it means for the pool.
 const TODAY_MATCHES = [
-  { ev: 'men',   a: 'J. Lehecka',    b: 'A. Zverev',           court: 'to finish',    order: '',       time: '' },
-  { ev: 'women', a: 'J. Pegula',     b: 'C. Gauff',            court: 'Centre Court', order: '1st on', time: '1:30pm' },
-  { ev: 'men',   a: 'N. Djokovic',   b: 'F. Auger-Aliassime',  court: 'Centre Court', order: '2nd on', time: '' },
-  { ev: 'men',   a: 'J. Sinner',     b: 'JL. Struff',          court: 'No.1 Court',   order: '1st on', time: '1:30pm' },
-  { ev: 'women', a: 'N. Osaka',      b: 'K. Muchova',          court: 'No.1 Court',   order: '2nd on', time: '' },
+  { ev: 'women', a: 'K. Muchova',  b: 'C. Gauff',    court: 'Centre Court', order: 'Thu 1st on', time: '' },
+  { ev: 'women', a: 'M. Kostyuk',  b: 'L. Noskova',  court: 'Centre Court', order: 'Thu 2nd on', time: '' },
+  { ev: 'men',   a: 'J. Sinner',   b: 'N. Djokovic', court: 'Centre Court', order: 'Fri 1st on', time: '' },
+  { ev: 'men',   a: 'A. Fery',     b: 'A. Zverev',   court: 'Centre Court', order: 'Fri 2nd on', time: '' },
 ];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
