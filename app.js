@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260708-1245';
+const BUILD = '20260708-1330';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 10;
@@ -166,6 +166,8 @@ function contenders(picks, r, m) {
 }
 
 // Clear any later-round pick that references a player no longer advancing.
+// Used for a USER'S BRACKET — a coherent prediction that must stay internally
+// consistent, so a blank earlier round legitimately invalidates later picks.
 function validate(picks) {
   for (let r = 1; r < 7; r++) {
     const arr = picks['r' + r];
@@ -174,6 +176,23 @@ function validate(picks) {
         const c = contenders(picks, r, m);
         if (!c.includes(arr[m])) arr[m] = null;
       }
+    }
+  }
+}
+
+// Reconcile RESULTS, which are independent facts (not a dependent prediction).
+// Only clear a recorded later-round winner when BOTH feeder matches are known
+// and neither is that winner — a genuine contradiction after an earlier result
+// was corrected. Crucially it NEVER clears a scored result just because an
+// earlier round is still blank: that gap-cascade is what silently erased the
+// commissioner's scoring whenever the bracket was momentarily incomplete.
+function reconcileResults(picks) {
+  for (let r = 1; r < 7; r++) {
+    for (let m = 0; m < ROUND_SIZES[r]; m++) {
+      const w = picks['r' + r][m];
+      if (w === null) continue;
+      const c = contenders(picks, r, m);
+      if (c[0] !== null && c[1] !== null && !c.includes(w)) picks['r' + r][m] = null;
     }
   }
 }
@@ -2397,7 +2416,7 @@ function doResult(r, m, slot) {
   if (!state.commish) return;
   const picks = state.results[state.event];
   picks['r' + r][m] = (picks['r' + r][m] === slot) ? null : slot;
-  validate(picks);
+  reconcileResults(picks); // never gap-cascade-deletes scored results
   saveResults();
   render();
 }
