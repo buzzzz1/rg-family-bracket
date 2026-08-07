@@ -20,7 +20,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260708-1330';
+const BUILD = '20260708-1410';
 // Tournament day + date shown on the Daily Recap header. Pinned (not clock-
 // derived) so they stay put; bump both by hand as play advances.
 const TOURNAMENT_DAY = 10;
@@ -2475,7 +2475,7 @@ function header() {
       <div class="brand">
         <h1 class="title">Kiwi House Family Bracket Challenge</h1>
         <div class="subtitle">Wimbledon 2026</div>
-        <div class="reign">👑 Reigning champion of the court: Michael</div>
+        <div class="reign">👑 Reigning champion of the court: Adrian</div>
       </div>
       <div class="whoami">Playing as <strong>${esc(state.userName)}</strong>
         · <a data-action="new-bracket">not you?</a></div>
@@ -3065,7 +3065,7 @@ function welcomeScreen() {
       <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
       <div class="subtitle">Wimbledon 2026</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
-      <div class="reign">👑 Reigning champion of the court: Michael</div>
+      <div class="reign">👑 Reigning champion of the court: Adrian</div>
     </div>`;
   return hero + (state.pendingName ? pinPanel() : namePanel());
 }
