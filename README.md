@@ -1,127 +1,64 @@
-# Kiwi House Family Bracket — Wimbledon 2026
+# Kiwi House Family Bracket — US Open 2026
 
-A shared web page where everyone in the family fills out a full 128-player
-bracket for the men's and women's singles draws, and a live leaderboard scores
-the predictions as the tournament plays out.
+Static HTML/CSS/JavaScript. No build step or package installation. Seven existing family participants; the existing 10 / 20 / 40 / 80 / 160 / 320 / 640 scoring remains (4,480 per draw; 8,960 overall).
 
-The site at the root (`kiwihousebracket.com`) is the **current tournament**
-(Wimbledon 2026). The previous tournament stays online, read-only, at
-`kiwihousebracket.com/rg2026/` (its files live in the `rg2026/` folder).
+## Tournament isolation
 
-## Starting a new tournament
+| Site | Entries | Metadata |
+| --- | --- | --- |
+| `/` US Open 2026 | `usopen2026_entries/{player-slug}` | `usopen2026_meta/{results,config,recap_snapshot}` |
+| `/wim2026/` Wimbledon archive | `wim2026_entries/{player-slug}` | `wim2026_meta/{results,config,recap_snapshot}` |
+| `/rg2026/` Roland Garros archive | `entries/{player-slug}` | `meta/{results,config,recap_snapshot}` |
 
-Each tournament keeps its own picks/results so a new pool starts empty while
-the old one is preserved:
+US Open identity uses only `usopen2026_uid` and `usopen2026_name` in localStorage. There is no migration, reset, or fallback to historical paths. Missing US Open documents mean empty brackets/results and an open, incomplete tournament. Only normal user actions create documents.
 
-1. Copy the current root files into a dated archive folder (e.g. `rg2026/`) —
-   that frozen copy keeps pointing at the tournament that just finished.
-2. In the new root `app.js` **and** `scripts/update-results.mjs`, bump the
-   `SEASON` constant (e.g. `'wim2026'` → `'usopen2026'`). That namespaces the
-   Firestore collections (`<SEASON>_entries`, `<SEASON>_meta`) so the new pool
-   is empty. Leaving `SEASON` empty uses the original `entries`/`meta`
-   collections (that's what the Roland Garros archive does).
-3. Replace `draws.js` with the new official draw, empty `results-feed.json`,
-   and bump the `?v=` cache stamp in `index.html` and `app.js`.
+Wimbledon assets were copied before the rollover. Its browser write functions are disabled; visitors can browse recaps, the draw, standings, and all brackets without signing in. The historical draw, feed, styling, and logo were preserved. All Roland Garros files are unchanged. Neither archive is a database backup: both still read their original Firestore data.
 
-## What's in here
+## Local preview — no production writes
 
-| File | What it is |
-|------|------------|
-| `index.html` | The page everyone opens |
-| `app.js` | All the app logic (picking, scoring, leaderboard) |
-| `draws.js` | The official Roland Garros 2026 draws (128 players each) |
-| `styles.css` | Styling |
-| `firebase-config.js` | **You must fill this in once** — see below |
+Run from this directory:
 
-## How it works
-
-- Each person opens the link, types their name, and picks a winner for every
-  match from the Round of 128 down to the champion (127 picks per draw).
-- Picks save automatically. Round 2 fills in from your Round 1 winners, and so on.
-- The **commissioner** (you) records the real match results and locks the
-  brackets when play starts.
-- Scoring per correct pick: **10 / 20 / 40 / 80 / 160 / 320 / 640** for
-  R128 → R64 → R32 → R16 → QF → SF → Final. Each round is worth 640 points in
-  total, so a complete correct first round and a correct champion are worth the
-  same. Max per draw is 4,480; max overall 8,960.
-- Other people's picks stay hidden until the brackets are locked.
-
-## One-time setup (about 5 minutes)
-
-The app uses **Firebase Firestore** (free) so picks and the leaderboard sync
-between everyone.
-
-### 1. Create a Firebase project
-1. Go to <https://console.firebase.google.com> and sign in with a Google account.
-2. Click **Add project**, give it a name (e.g. `rg-family-bracket`), and finish.
-   You can disable Google Analytics — it isn't needed.
-
-### 2. Register a web app
-1. On the project overview page, click the **`</>`** (Web) icon.
-2. Give it a nickname and click **Register app**. You do **not** need Firebase
-   Hosting here.
-3. Firebase shows a `firebaseConfig` object. Copy each value into
-   `firebase-config.js`, replacing the `PASTE_...` placeholders.
-
-### 3. Create the Firestore database
-1. In the left menu: **Build → Firestore Database → Create database**.
-2. Pick a location near you and continue.
-
-### 4. Set the security rules
-In the Firestore **Rules** tab, replace the contents with the following and
-click **Publish**:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
+```sh
+python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-This makes the data fully open. That's fine for a private family link — just
-don't post the link publicly. (If you'd like tighter rules later, that's a
-follow-up.)
+Open http://127.0.0.1:8000/ . On any host other than `kiwihousebracket.com` or `www.kiwihousebracket.com`, the US Open application starts in LOCAL PREVIEW mode. It does not initialize Firebase or connect to Firestore. Choose a name and a disposable four-digit test PIN; picks and manual controls work only in memory, reset on reload, and never persist an identity. The commissioner screen has a local-only preview button so no real password is necessary.
 
-### 5. Set the commissioner password
-At the bottom of `firebase-config.js`, change `COMMISSIONER_PASSWORD` to
-something only you know. This gates results entry and locking the brackets.
+The historical archive pages read their original Firestore data; the Wimbledon app has no active write functions. Do not invoke historical scripts. Local preview does not verify live saving. A production saving test requires separate explicit approval; there is intentionally no query parameter that enables live writes on localhost.
 
-## Sharing it with the family
+## Manual results only
 
-The app is just static files, so any static host works. Two easy options:
+Only the commissioner selects actual match winners. The app then saves those selections to `usopen2026_meta/results` and recalculates scores. Firestore listeners display saved results; they do not fetch tennis results or choose winners.
 
-**Option A — GitHub Pages (a real shareable link)**
-1. Create a repo and upload these files (or use `git`).
-2. In the repo: **Settings → Pages → Branch: main / root → Save**.
-3. After a minute the family bracket is live at
-   `https://<your-username>.github.io/<repo-name>/`. Share that link.
+- Root `scripts/update-results.mjs` is a disabled stub with no imports, network calls, or database writes. Do not run it.
+- There is no root results feed, automated import, scraper, scheduled results task, or fallback results source.
+- `wim2026/results-feed.json` is an unchanged historical artifact, never read by the application.
+- `rg2026/scripts/update-results.mjs` and its feed remain only because the archive must stay unchanged. **Never run this historical updater.**
+- External Claude jobs or copies of old updater scripts must be disabled separately by their owner. This repository cannot revoke their database access.
+- The existing site-version check reads `index.html` to offer a refresh after deployment; it never reads or writes tennis results.
 
-**Option B — try it locally first**
-From this folder run a static server, e.g.:
+Tap a winner in the Commissioner tab to record it; tap again to clear that match. If a correction makes later-round recorded winners contradictory, a confirmation lists the results that would be cleared. Cancel preserves everything. Incomplete feeder rounds do not automatically erase recorded later results. Use one commissioner editing tab at a time: the existing save format writes the complete results document.
+
+The Daily Recap and share card summarize manually entered results since the last commissioner recap checkpoint. “Mark recap as sent” advances that checkpoint, not the results. The initial screen is a preseason/empty recap; no Wimbledon schedule carries over. Featured match lists are intentionally empty. The tournament wrap-up is published manually through existing commissioner controls.
+
+## Draw provenance
+
+See `sources/usopen2026/README.md` and the two numbered first-round transcripts for official USTA draw URLs. Both draws contain 128 players and the 32 official seeds in draw order, including the qualifiers placed in those sheets. No match results were imported.
+
+Player cards show ages, handedness, official August 24 rankings, singles titles and Slam bests, plus overall/hard-court H2H for the pair shown in each person's bracket (including hypothetical later rounds). Match-history coverage extends through Cincinnati 2026; this week's matches are not included. The cards use short labels and a compact coverage date, with data credits in the footer. Current and highest rankings have separate rows; unverified highs show a dash, and missing H2H data is not treated as zero. See `sources/player-reference/README.md` for provenance, licensing and the offline compiler. No reference-data fetch or result import runs in the browser. Countries omitted by the official draw stay blank. Review withdrawals/replacements before collecting picks; never reorder slots once picks exist.
+
+## Verification
+
+```sh
+node scripts/check-usopen.mjs
 ```
-python3 -m http.server 8000
-```
-then open <http://localhost:8000>. (Opening `index.html` directly as a
-`file://` URL will not work — it must be served over http.)
 
-## Running the pool
+The checks run offline with fake browser/database objects, validate official first-round positions/seeds, test scoring and manual correction confirmation, reject historical write paths, and verify that preview never calls Firebase. They never execute an updater or touch live Firestore.
 
-1. **Before play starts:** everyone fills out their bracket. Once the qualifier
-   spots are confirmed you can optionally edit `draws.js` to replace
-   `Qualifier` entries with real names — do this before locking.
-2. **When the tournament begins:** open the **Commissioner** tab, enter your
-   password, and click **Lock brackets now**. Picks are now final.
-3. **As matches finish:** in the Commissioner tab, tap the actual winner of each
-   match. The leaderboard updates live for everyone.
+## Deployment and deferred security
 
-## Notes
+Work is on `usopen-2026`; do not push, merge, or deploy without explicit owner approval. GitHub Pages still serves `main` at the repository root. `CNAME`, `.nojekyll`, Firebase configuration, and the domain are unchanged. Asset version stamps are bumped for the rollover.
 
-- The Wimbledon 2026 draws were taken from the official draw made on 2026-06-26.
-- One bracket is stored per device. If two people share a device, use the
-  "not you?" link to start a separate bracket.
-- The commissioner password is a light gate to prevent accidental edits, not
-  strong security.
+Before approved release: review the local preview, disable external automation, confirm the new namespace is unused, and explicitly test live saving when authorized. A Pages deployment does not revoke already-open old Wimbledon tabs; those should be closed/refreshed rather than used for editing after the rollover.
+
+Authentication/security redesign is deferred. The existing name/PIN and commissioner password are client-side gates. The write-path guard prevents accidental cross-tournament writes from this app but is not backend security. Existing Firestore rules and external credentials determine what other clients can do. Do not treat this as protection against arbitrary external writers.

@@ -1,8 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260829-2300';
-import { PLAYER_REFERENCE } from './player-reference.js?v=20260830-0005';
-import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260829-2300';
+import { DRAWS } from './draws.js?v=20260707-1600';
+import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260628-1200';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -21,23 +20,48 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260830-0007';
-// Recaps summarize manually entered results since the commissioner checkpoint.
-// No schedule feed, result feed, winner prediction, or automatic result writes.
-const WATCH_DATE = '';
-const TODAY_MATCHES = []; // Optional manual schedule; intentionally empty at launch.
+const BUILD = '20260829-archive';
+// Tournament day + date shown on the Daily Recap header. Pinned (not clock-
+// derived) so they stay put; bump both by hand as play advances.
+const TOURNAMENT_DAY = 10;
+const TOURNAMENT_DATE = 'Wednesday, July 8';
+const TOURNAMENT_ROUND = 4; // round shown in the recap header (0=R128, 1=R64, 2=R32, 3=R16, 4=QF, …)
+// The matches actually played on the recap's day (its order of play), hand-entered
+// so the recap — points for the day, highlights, and who fell — is scoped to
+// exactly that day's matches (not inferred). Names must match draws.js exactly;
+// the round is derived. Update this together with the day/date above.
+const RECAP_DAY_MATCHES = [
+  { ev: 'men',   a: 'F. Cobolli',  b: 'A. Fery' },
+  { ev: 'men',   a: 'T. Fritz',    b: 'A. Zverev' },
+  { ev: 'women', a: 'M. Kostyuk',  b: 'J. Paolini' },
+  { ev: 'women', a: 'L. Noskova',  b: 'E. Mertens' },
+];
+// "Matches to Watch" is today's order of play — hand-entered from the official
+// schedule since the real OOP can't be derived from the draw. `a`/`b` names must
+// match draws.js exactly; times are UK local (BST). Update this daily; set the
+// list to [] on a rest/finished day. Matches drop off automatically once their
+// result is entered, so the panel always shows only what's still to come today.
+const WATCH_DATE = 'Semifinals — Thursday & Friday';
+// Featured upcoming matches. `a`/`b` names must match draws.js exactly; the round
+// (R16, QF, …) is derived from where the two players meet. `court`/`order`/`time`
+// are optional schedule bits (UK local / BST). Each match shows a two-sided
+// "if A wins / if B wins" read on what it means for the pool.
+const TODAY_MATCHES = [
+  { ev: 'women', a: 'K. Muchova',  b: 'C. Gauff',    court: 'Centre Court', order: 'Thu 1st on', time: '' },
+  { ev: 'women', a: 'M. Kostyuk',  b: 'L. Noskova',  court: 'Centre Court', order: 'Thu 2nd on', time: '' },
+  { ev: 'men',   a: 'J. Sinner',   b: 'N. Djokovic', court: 'Centre Court', order: 'Fri 1st on', time: '' },
+  { ev: 'men',   a: 'A. Fery',     b: 'A. Zverev',   court: 'Centre Court', order: 'Fri 2nd on', time: '' },
+];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
 
-// Explicit US Open paths: never fall back to the historical collections.
-const SEASON = 'usopen2026';
-const ENTRIES_COLL = 'usopen2026_entries';
-const META_COLL = 'usopen2026_meta';
-// All non-production hosts are safe previews: no Firebase connection or writes.
-const LOCAL_PREVIEW = !['kiwihousebracket.com', 'www.kiwihousebracket.com'].includes(location.hostname);
-const identityStorage = LOCAL_PREVIEW
-  ? { getItem: () => null, setItem() {}, removeItem() {} }
-  : localStorage;
+// Each tournament gets its own Firestore namespace so a new pool starts empty
+// while past tournaments keep their data. Bump SEASON for the next event.
+// The archived Roland Garros 2026 page (in /rg2026/) leaves SEASON empty and
+// keeps using the original 'entries' / 'meta' collections.
+const SEASON = 'wim2026';
+const ENTRIES_COLL = SEASON ? `${SEASON}_entries` : 'entries';
+const META_COLL = SEASON ? `${SEASON}_meta` : 'meta';
 
 // The family members. Each picks their name from the dropdown; their bracket
 // is stored under that name and follows them across devices.
@@ -48,7 +72,6 @@ const NEEDS_SETUP = !firebaseConfig || !firebaseConfig.apiKey ||
 
 // ISO 3166-1 alpha-2 → display name, for the codes used in the draws.
 const COUNTRY_NAMES = {
-  eg: 'Egypt', hk: 'Hong Kong', mc: 'Monaco', za: 'South Africa',
   ad: 'Andorra', ar: 'Argentina', at: 'Austria', au: 'Australia', ba: 'Bosnia & Herzegovina',
   be: 'Belgium', bg: 'Bulgaria', br: 'Brazil', by: 'Belarus', ca: 'Canada', ch: 'Switzerland',
   cl: 'Chile', cn: 'China', co: 'Colombia', cz: 'Czechia', de: 'Germany', dk: 'Denmark',
@@ -79,11 +102,11 @@ function ageFromDob(dob) {
 // State
 // ---------------------------------------------------------------------------
 const state = {
-  view: 'bracket',          // bracket | leaderboard | commissioner
+  view: 'recap',          // bracket | leaderboard | commissioner
   event: 'men',
   round: 0,
-  userId: identityStorage.getItem('usopen2026_uid') || null,
-  userName: identityStorage.getItem('usopen2026_name') || null,
+  userId: null,
+  userName: null,
   myPicks: null,            // { men: picks, women: picks }
   myPicksLoaded: false,
   userPin: null,
@@ -410,9 +433,9 @@ function familyStats(entries, matches) {
   return { total, correct, byRound, unanimousCorrect, unanimousWrong, splits, hardest, easiest };
 }
 
-// Recap scope is explicit; it never implies an automatically fetched schedule.
+// The daily recap covers YESTERDAY's play, so the header date is yesterday.
 function tournamentDay() {
-  return { dateStr: hasResults() ? 'Manual results since the last recap checkpoint' : 'Opening round · Sunday, August 30' };
+  return { dateStr: TOURNAMENT_DATE };
 }
 
 // Decorated player label for the recap (includes seed in parens if seeded).
@@ -436,10 +459,11 @@ function generateRecapText() {
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
   const todayPoints = {}, todayCorrect = {};
-  entries.forEach(e => { todayPoints[e.id] = e.total - score(e.men, normalizePicks(snap.men)).total - score(e.women, normalizePicks(snap.women)).total; todayCorrect[e.id] = 0; });
+  entries.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
   for (const t of todayAll) {
     for (const e of entries) {
       if (e[t.event]['r' + t.r][t.m] === t.winner) {
+        todayPoints[e.id] += ROUND_POINTS[t.r];
         todayCorrect[e.id]++;
       }
     }
@@ -460,14 +484,14 @@ function generateRecapText() {
     const ranked = entries.slice().sort((a, b) => todayPoints[b.id] - todayPoints[a.id]);
     const mover = ranked[0];
     if (mover && todayPoints[mover.id] > 0) {
-      lines.push(`📈 Mover since recap: ${mover.name} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
+      lines.push(`📈 Mover today: ${mover.name} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
     }
     const maxCorrect = Math.max(...Object.values(todayCorrect));
     if (maxCorrect > 0) {
       const tops = entries.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
       const sameAsMover = mover && tops.length === 1 && tops[0] === mover.name && todayPoints[mover.id] > 0;
       if (!sameAsMover) {
-        lines.push(`🎯 Best record since recap: ${tops.join(', ')} (${maxCorrect}/${todayAll.length})`);
+        lines.push(`🎯 Best record today: ${tops.join(', ')} (${maxCorrect}/${todayAll.length})`);
       }
     }
     const todayUpsets = todayAll.map(t => {
@@ -482,7 +506,7 @@ function generateRecapText() {
       const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
         : whoHad.length === 1 ? `only ${whoHad[0]} had it`
         : `${whoHad.length} of you had it`;
-      lines.push(`😱 Upset since recap: ${recapName(draw, top.winner)} d. ${recapName(draw, top.loser)} — ${sawIt}`);
+      lines.push(`😱 Upset of the day: ${recapName(draw, top.winner)} d. ${recapName(draw, top.loser)} — ${sawIt}`);
     }
     let bold = null;
     for (const t of todayAll) {
@@ -519,7 +543,7 @@ function generateRecapText() {
       const parts = [`${pct}% (${todayFam.correct}/${todayFam.total})`];
       if (todayFam.unanimousCorrect.length) parts.push(`${todayFam.unanimousCorrect.length} unanimous right`);
       if (todayFam.unanimousWrong.length) parts.push(`${todayFam.unanimousWrong.length} unanimous wrong`);
-      lines.push(`📊 Family since recap: ${parts.join(' · ')}`);
+      lines.push(`📊 Family today: ${parts.join(' · ')}`);
       if (todayFam.unanimousWrong.length) {
         const u = todayFam.unanimousWrong[0];
         lines.push(`   (oops — we all picked ${DRAWS[u.event][u.familyPick].name})`);
@@ -540,7 +564,7 @@ function generateRecapText() {
     const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
     const labelText = ev === 'men' ? 'Men' : 'Women';
     if (sorted.length === 0) {
-      lines.push(`   ${labelText}: no surviving champion picks submitted`);
+      lines.push(`   ${labelText}: nobody's champion still in 😱`);
     } else {
       lines.push(`   ${labelText}: ${sorted.map(([n, c]) => `${n} (${c})`).join(', ')}`);
     }
@@ -788,12 +812,7 @@ function generateTournamentRecapText() {
 }
 
 function advanceRecap() {
-  if (!db) return;
-  writeTournamentDocument(META_COLL, 'recap_snapshot', {
-    men: state.results.men,
-    women: state.results.women,
-    takenAt: Date.now(),
-  }).catch(err => alert('Could not save recap snapshot: ' + err.message));
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 async function copyRecap() {
@@ -1258,12 +1277,27 @@ function fallenSeeds(ev) {
   return out.sort((x, y) => x.seed - y.seed);
 }
 
-// Read manually recorded winners changed since the commissioner checkpoint.
-// Unknown opponents are excluded from matchup-based highlights, not from scoring.
+// Resolve RECAP_DAY_MATCHES (the day's order of play) to played matches with a
+// winner: {event, r, m, winner, loser}. Skips any not yet played or not actually
+// in the bracket, so the recap covers exactly that day's results.
 function recapDayMatches() {
-  return EVENTS.flatMap(([event]) => diffTodayMatches(
-    state.results[event], state.recapSnapshot && state.recapSnapshot[event], event
-  )).filter(match => match.loser != null);
+  const out = [];
+  for (const t of RECAP_DAY_MATCHES) {
+    const draw = DRAWS[t.ev];
+    const a = draw.findIndex(p => p && p.name === t.a);
+    const b = draw.findIndex(p => p && p.name === t.b);
+    if (a < 0 || b < 0) continue;
+    let r = -1;
+    for (let rr = 0; rr < 7; rr++) if (matchOfSlot(a, rr) === matchOfSlot(b, rr)) { r = rr; break; }
+    if (r < 0) continue;
+    const m = matchOfSlot(a, r);
+    const [ca, cb] = matchContenders(state.results[t.ev], r, m);
+    if (!((ca === a && cb === b) || (ca === b && cb === a))) continue; // players don't actually meet here
+    const w = state.results[t.ev]['r' + r][m];
+    if (w === null || w === undefined) continue; // not played yet
+    out.push({ event: t.ev, r, m, winner: w, loser: w === a ? b : a });
+  }
+  return out;
 }
 
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
@@ -1271,13 +1305,16 @@ function recapDayMatches() {
 function dailyRecapView() {
   const { dateStr } = tournamentDay();
   let html = `<div class="daily-head">
-    <div class="dh-day">${hasResults() ? 'Latest recap' : 'Before play'} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[currentRoundIndex()])}</div>
+    <div class="dh-day">Day ${TOURNAMENT_DAY} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[TOURNAMENT_ROUND])}</div>
     <div class="dh-date">${esc(dateStr)}</div>
   </div>`;
 
-  // Compare with the last manually saved recap checkpoint. No schedule required.
+  // The day's matches (from its order of play) drive everything below. "Before
+  // today" = current results with those matches removed, so movement and points
+  // gained reflect exactly this day — independent of any checkpoint.
   const dayMatches = recapDayMatches();
-  const prevRes = { men: normalizePicks(state.recapSnapshot?.men), women: normalizePicks(state.recapSnapshot?.women) };
+  const prevRes = { men: normalizePicks(state.results.men), women: normalizePicks(state.results.women) };
+  for (const t of dayMatches) prevRes[t.event]['r' + t.r][t.m] = null;
 
   const totalPlayed = playedCount(state.results.men) + playedCount(state.results.women);
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
@@ -1292,13 +1329,13 @@ function dailyRecapView() {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Changed manual results shared by Leaders + Highlights.
+  // Today's matches = the day's order of play — shared by Leaders + Highlights.
   const snap = prevRes; // "before today" state, used for champion-down / movement
   const todayAll = dayMatches;
   const todayPoints = {}, todayCorrect = {};
-  raw.forEach(e => { todayPoints[e.id] = e.total - e.prev; todayCorrect[e.id] = 0; });
+  raw.forEach(e => { todayPoints[e.id] = 0; todayCorrect[e.id] = 0; });
   for (const t of todayAll) for (const e of raw) {
-    if (e[t.event]['r' + t.r][t.m] === t.winner) { todayCorrect[e.id]++; }
+    if (e[t.event]['r' + t.r][t.m] === t.winner) { todayPoints[e.id] += ROUND_POINTS[t.r]; todayCorrect[e.id]++; }
   }
 
   // Leaders — all six on a 3-up grid. Ties share a rank/medal (standard "1-1-3"
@@ -1319,11 +1356,11 @@ function dailyRecapView() {
     const overall = totalPlayed > 0 ? `<div class="dp-tot">${e.correct}/${totalPlayed} correct</div>` : '';
     // Today: point change, correct/total today, and position change.
     let day = '';
-    if (todayAll.length || todayPoints[e.id] !== 0) {
+    if (todayAll.length) {
       const delta = prevRank[e.id] - rank;
       const move = delta > 0 ? `<span class="up">▲${delta}</span>` : delta < 0 ? `<span class="down">▼${-delta}</span>` : `<span class="flat">–</span>`;
-      day = `<div class="dp-day"><div class="dp-drow"><span class="dp-pp">${todayPoints[e.id] >= 0 ? '+' : ''}${todayPoints[e.id].toLocaleString()}</span> ${move}</div>
-        <div class="dp-dsub">${todayCorrect[e.id]}/${todayAll.length} since recap</div></div>`;
+      day = `<div class="dp-day"><div class="dp-drow"><span class="dp-pp">+${todayPoints[e.id].toLocaleString()}</span> ${move}</div>
+        <div class="dp-dsub">${todayCorrect[e.id]}/${todayAll.length} today</div></div>`;
     }
     return `<div class="dp-card${rankCls}">${badge}
       <div class="dp-name">${esc(e.name)}</div>
@@ -1340,22 +1377,22 @@ function dailyRecapView() {
   } else {
     const beat = (icon, label, val) => `<div class="dr-beat"><span class="dr-ic">${icon}</span><span class="dr-tx"><strong>${label}</strong> ${val}</span></div>`;
 
-    // Most points since recap (with the leader's correct-pick count when it's one person).
+    // Most points today (with the leader's correct-pick count when it's one person).
     const maxToday = Math.max(0, ...raw.map(e => todayPoints[e.id]));
     if (maxToday > 0) {
       const top = raw.filter(e => todayPoints[e.id] === maxToday);
       const picks = top.length === 1 ? ` (${todayCorrect[top[0].id]}/${todayAll.length} correct)` : '';
-      html += beat('📈', 'Most points since recap:', `${esc(nameList(top.map(e => e.name)))} +${maxToday.toLocaleString()}${picks}`);
+      html += beat('📈', 'Most points today:', `${esc(nameList(top.map(e => e.name)))} +${maxToday.toLocaleString()}${picks}`);
     }
-    // Biggest climb since recap = biggest climb in the standings.
+    // Mover of the day = biggest climb in the standings.
     const climb = {};
     raw.forEach((e, i) => { climb[e.id] = prevRank[e.id] - ranks[i]; });
     const maxClimb = Math.max(0, ...raw.map(e => climb[e.id]));
     if (maxClimb > 0) {
       const climbers = raw.filter(e => climb[e.id] === maxClimb).map(e => e.name);
-      html += beat('🧗', 'Biggest climb since recap:', `${esc(nameList(climbers))} — up ${maxClimb} ${maxClimb === 1 ? 'place' : 'places'}`);
+      html += beat('🧗', 'Mover of the day:', `${esc(nameList(climbers))} — up ${maxClimb} ${maxClimb === 1 ? 'place' : 'places'}`);
     }
-    // Upset since recap.
+    // Upset of the day.
     const todayUpsets = todayAll.map(t => {
       const draw = DRAWS[t.event];
       const ws = draw[t.winner].seed || 99, ls = draw[t.loser].seed || 99;
@@ -1367,7 +1404,7 @@ function dailyRecapView() {
       const whoHad = raw.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
       const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
         : whoHad.length === 1 ? `only ${whoHad[0]} had it` : `${whoHad.length} of you had it`;
-      html += beat('😱', 'Upset since recap:', `${esc(recapName(draw, top.winner))} def. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
+      html += beat('😱', 'Upset of the day:', `${esc(recapName(draw, top.winner))} def. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
     }
     // Champion picks knocked out today.
     const champLosses = [];
@@ -1382,7 +1419,7 @@ function dailyRecapView() {
     const fam = familyStats(raw, todayAll);
     if (fam.total > 0) {
       const pct = Math.round(fam.correct / fam.total * 100);
-      html += beat('📊', 'Family since recap:', `${pct}% (${fam.correct}/${fam.total})`);
+      html += beat('📊', 'Family today:', `${pct}% (${fam.correct}/${fam.total})`);
       const N = raw.length;
       // Every card gets the same second line: how many brackets were live and
       // the win–loss tally among them — "Active in 6 brackets (6–0)" for a
@@ -1485,7 +1522,7 @@ function dailyRecapView() {
       if (w.time) parts.push(`<span class="w-time">Approx. ${esc(w.time)}</span>`);
       return parts.join('<span class="w-sep">|</span>');
     };
-    html += `<div class="panel"><h2>👀 Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · Times in New York (ET)</span></h2><div class="watch-list">`;
+    html += `<div class="panel"><h2>👀 Matches to Watch <span class="wl-date">${esc(WATCH_DATE)} · Times in BST</span></h2><div class="watch-list">`;
     watch.forEach(w => {
       const draw = DRAWS[w.ev];
       const nA = raw.filter(e => e[w.ev]['r' + w.r][w.m] === w.a).length;
@@ -1514,7 +1551,7 @@ function dailyRecapView() {
     const body = fell.length ? fList(fell) : `<p class="muted small" style="margin:0">No seeds fell.</p>`;
     return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${body}</div>`;
   };
-  html += `<div class="panel"><h2>📉 Seeds Out Since Last Recap</h2><div class="fallen2">
+  html += `<div class="panel"><h2>📉 Seeds Out Today</h2><div class="fallen2">
     ${fColumn('men', 'Men')}
     ${fColumn('women', 'Women')}
   </div></div>`;
@@ -1530,7 +1567,7 @@ function dailyRecapView() {
     }
     const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
     html += `<div class="dr-champ"><div class="dr-clbl">${lbl}</div><div class="dr-cval">${
-      sorted.length === 0 ? `<span class="muted">no surviving champion picks submitted</span>`
+      sorted.length === 0 ? `<span class="muted">nobody's champion still in 😱</span>`
         : sorted.map(([n, c]) => `${esc(n)} <span class="dr-cn">(${c})</span>`).join(', ')
     }</div></div>`;
   }
@@ -1583,7 +1620,7 @@ function shareCardView() {
   const maxToday = Math.max(0, ...raw.map(e => e.today));
   if (maxToday > 0) {
     const movers = raw.filter(e => e.today === maxToday).map(e => e.name);
-    beats.push(`<div class="sc-beat">📈 <b>Most points since recap</b> — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})</div>`);
+    beats.push(`<div class="sc-beat">📈 <b>Most points today</b> — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})</div>`);
   }
   const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
   const todayAll = [...diffTodayMatches(res.men, snap.men, 'men'), ...diffTodayMatches(res.women, snap.women, 'women')];
@@ -1594,7 +1631,7 @@ function shareCardView() {
   }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
   if (upsets.length) {
     const u = upsets[0], d = DRAWS[u.event];
-    beats.push(`<div class="sc-beat">😱 <b>Upset since recap</b> — ${esc(recapName(d, u.winner))} def. ${esc(recapName(d, u.loser))}</div>`);
+    beats.push(`<div class="sc-beat">😱 <b>Upset of the day</b> — ${esc(recapName(d, u.winner))} def. ${esc(recapName(d, u.loser))}</div>`);
   }
 
   return `<div class="share-wrap">
@@ -1606,7 +1643,7 @@ function shareCardView() {
       <div class="sc-top">
         <div class="sc-emoji">🎾</div>
         <div class="sc-brand">Kiwi House Bracket</div>
-        <div class="sc-meta">${hasResults() ? 'Latest recap' : 'Before play'} · ${esc(ROUND_NAMES[currentRoundIndex()])} · ${esc(dateStr)}</div>
+        <div class="sc-meta">Day ${TOURNAMENT_DAY} · ${esc(ROUND_NAMES[TOURNAMENT_ROUND])} · ${esc(dateStr)}</div>
       </div>
       <div class="sc-standings">${rows}</div>
       ${beats.length ? `<div class="sc-beats">${beats.join('')}</div>` : ''}
@@ -1625,7 +1662,7 @@ async function downloadShareCard() {
     // transparent in the PNG (no white triangles).
     const canvas = await html2canvas(el, { scale: 2, backgroundColor: null, useCORS: true });
     const link = document.createElement('a');
-    link.download = 'kiwi-house-usopen2026-recap.png';
+    link.download = `kiwi-house-bracket-day-${TOURNAMENT_DAY}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   } catch (err) {
@@ -1641,7 +1678,7 @@ function renderFinalRecapHTML(rc) {
   let html = `<div class="recap-page">`;
   html += `<div class="recap-hero">
     <h2>🏆 Tournament Wrap-Up</h2>
-    <div class="sub">US Open 2026 · the family vs the draw</div>
+    <div class="sub">Wimbledon 2026 · the family vs the draw</div>
     <div class="actions"><button data-action="copy-final-recap">📋 Copy as text</button></div>
   </div>`;
 
@@ -1678,7 +1715,7 @@ function renderFinalRecapHTML(rc) {
 
   // Champions
   if (champions.men || champions.women) {
-    html += `<div class="panel"><h2>👑 US Open Champions</h2><div class="champ-row">`;
+    html += `<div class="panel"><h2>👑 Wimbledon Champions</h2><div class="champ-row">`;
     [['men', "Men's"], ['women', "Women's"]].forEach(([k, lbl]) => {
       const c = champions[k]; if (!c) return;
       html += `<div class="champ-card">
@@ -1698,7 +1735,7 @@ function renderFinalRecapHTML(rc) {
   // current from one event to the next.
   html += `<div class="panel"><h2>🌟 Stories of the Tournament</h2>`;
   html += `<div class="story-card">
-    <p>Two weeks, 254 matches, one family bracket. Here's how US Open 2026
+    <p>Two weeks, 254 matches, one family bracket. Here's how Wimbledon 2026
     played out against everyone's picks — the upsets that wrecked brackets, the
     rounds the family nailed, and who ended up on the podium.</p>
   </div>`;
@@ -1805,7 +1842,7 @@ function generateFinalRecapText() {
     uniCorr, uniWrong, seedM, seedW } = rc;
   const L = [];
   L.push('🏆 KIWI HOUSE BRACKET — TOURNAMENT WRAP-UP');
-  L.push('US Open 2026');
+  L.push('Wimbledon 2026');
   L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   L.push('');
   L.push('🥇 PODIUM');
@@ -1884,7 +1921,7 @@ function commissionerRecapPanel() {
   html += `<textarea class="recap-text" readonly rows="22">${esc(recapText)}</textarea>`;
   html += `<div class="recap-actions">
     <button class="btn" data-action="copy-recap">Copy recap</button>
-    <button class="btn ghost" data-action="advance-recap">Mark recap as sent (save checkpoint)</button>
+    <button class="btn ghost" data-action="advance-recap">Mark recap as sent (advance day)</button>
   </div>`;
   if (state.recapSnapshot && state.recapSnapshot.takenAt) {
     const when = new Date(state.recapSnapshot.takenAt)
@@ -2068,9 +2105,7 @@ function label(draw, slot) {
   if (slot === null || slot === undefined) return 'TBD';
   const p = draw[slot];
   if (!p) return '—';
-  const status = { Q: 'Q', W: 'WC', L: 'LL' }[p.entry];
-  const suffix = [p.seed, status].filter(Boolean).join(', ');
-  return suffix ? `${p.name} (${suffix})` : p.name;
+  return p.seed ? `${p.name} (${p.seed})` : p.name;
 }
 
 // Small country flag for a player slot. Returns safe HTML (an <img> from the
@@ -2137,31 +2172,12 @@ function pickedBy(ev, slot) {
 // fields (rank / high / dob / plays / titles / slam bests) from the draw; any
 // that are missing show as "—". Men are on the ATP tour, women on the WTA tour.
 // The projected path is computed live from the draw seeding.
-function matchupReferenceHTML(ev, pair) {
-  const draw = DRAWS[ev];
-  if (!pair || pair.length !== 2 || pair[0] === pair[1] || !pair.every(s => Number.isInteger(s) && draw?.[s])) return '';
-  const names = pair.map(s => draw[s].fullName);
-  const sorted = [...names].sort();
-  const record = PLAYER_REFERENCE.h2h[ev][sorted.join('|')];
-  const available = names.every(name => PLAYER_REFERENCE.profiles[ev][name]?.recordedMatches > 0);
-  const side = names[0] === sorted[0] ? 0 : 1;
-  return `<section class="pm-h2h" aria-label="Matchup head to head">
-    <div class="pm-sub">Head to head</div>
-    <div class="pm-h2h-names"><span>${esc(draw[pair[0]].name)}</span><span>${esc(draw[pair[1]].name)}</span></div>
-    ${record ? `<div class="pm-h2h-score"><strong>${record[side]}</strong><span>wins</span><strong>${record[1 - side]}</strong></div>
-    <div class="pm-h2h-score hard"><strong>${record[side + 2]}</strong><span>on hard courts</span><strong>${record[3 - side]}</strong></div>`
-    : `<p class="pm-empty">${available ? 'No recorded meetings.' : 'Head-to-head data unavailable.'}</p>`}
-  </section>`;
-}
-
 function playerModalHTML() {
   if (!state.playerModal) return '';
   const { ev, slot, pair } = state.playerModal;
   const draw = DRAWS[ev];
-  const entrant = draw && draw[slot];
-  if (!entrant) return '';
-  const reference = PLAYER_REFERENCE.profiles[ev][entrant.fullName];
-  const p = { ...entrant, ...reference };
+  const p = draw && draw[slot];
+  if (!p) return '';
   // If opened from a matchup, show a toggle between the two players. The pair is
   // in a fixed order, so flipping only moves the highlight — names never swap.
   const hasPair = pair && pair.length === 2 && pair[0] !== pair[1] && draw[pair[0]] && draw[pair[1]];
@@ -2187,12 +2203,10 @@ function playerModalHTML() {
     <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
       <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
       ${switcher}
-      <div class="pm-updated">Stats through Cincinnati · Rankings Aug 24</div>
-      ${hasPair ? matchupReferenceHTML(ev, pair) : ''}
       <div class="pm-head">
         ${flagImg(draw, slot)}
         <div>
-          <div class="pm-name">${esc(p.fullName || p.name)}</div>
+          <div class="pm-name">${esc(p.name)}</div>
           ${p.seed ? `<div class="pm-seed">Seed ${p.seed}</div>` : `<div class="pm-seed unseeded">Unseeded</div>`}
         </div>
       </div>
@@ -2200,10 +2214,10 @@ function playerModalHTML() {
       ${row('Age', age != null ? age : '—')}
       ${row('Plays', plays)}
       ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
-      ${row('Highest ranking', fmtRank(p.high))}
-      ${row('Singles titles', typeof p.titles === 'number' ? p.titles : '—')}
+      ${row(`Career-high ${tour} ranking`, fmtRank(p.high))}
+      ${row(`${tour} singles titles`, typeof p.titles === 'number' ? p.titles : '—')}
 
-      <div class="pm-sub">Grand Slam bests</div>
+      <div class="pm-sub">Best result at the slams</div>
       <div class="pm-slams">
         ${slamRow('Australian Open', p.ao)}
         ${slamRow('French Open', p.rg)}
@@ -2232,12 +2246,6 @@ function playerModalHTML() {
 let db, fb;
 
 async function initFirebase() {
-  if (LOCAL_PREVIEW) {
-    db = { preview: true };
-    state.ready = true;
-    render();
-    return;
-  }
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
   fb = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js');
   const app = appMod.initializeApp(firebaseConfig);
@@ -2258,8 +2266,8 @@ async function initFirebase() {
         // cleanly and fall back to the welcome screen.
         state.userId = null;
         state.userName = null;
-        identityStorage.removeItem('usopen2026_uid');
-        identityStorage.removeItem('usopen2026_name');
+
+
       }
       state.myPicksLoaded = true;
     }
@@ -2293,64 +2301,22 @@ async function initFirebase() {
   });
 }
 
-// Only this function reaches Firestore writes. Preview writes stay in memory.
-async function writeTournamentDocument(collection, id, data, options) {
-  const entry = collection === 'usopen2026_entries' && PLAYERS.some(name => slug(name) === id);
-  const meta = collection === 'usopen2026_meta' && ['results', 'config', 'recap_snapshot'].includes(id);
-  if (!entry && !meta) throw new Error('Blocked write outside the US Open tournament.');
-  if (meta && !state.commish) throw new Error('Commissioner access required.');
-  if (entry && state.config.locked) throw new Error('Brackets are locked.');
-  if (LOCAL_PREVIEW) {
-    const copy = JSON.parse(JSON.stringify(data));
-    if (entry) state.entries[id] = { id, ...copy };
-    else if (id === 'config') state.config = { ...state.config, ...copy };
-    else if (id === 'recap_snapshot') state.recapSnapshot = copy;
-    render();
-    return;
-  }
-  const ref = fb.doc(db, collection, id);
-  return options ? fb.setDoc(ref, data, options) : fb.setDoc(ref, data);
-}
-
 let saveTimer;
 function saveMyEntry() {
-  if (!state.userId || !db || state.config.locked) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    if (state.config.locked) return;
-    writeTournamentDocument(ENTRIES_COLL, state.userId, {
-      name: state.userName,
-      pin: state.userPin || '',
-      men: state.myPicks.men,
-      women: state.myPicks.women,
-      updatedAt: Date.now(),
-    }).catch(err => alert('Could not save: ' + err.message));
-  }, 600);
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 let resultsTimer;
 function saveResults() {
-  if (!db) return;
-  clearTimeout(resultsTimer);
-  resultsTimer = setTimeout(() => {
-    writeTournamentDocument(META_COLL, 'results', {
-      men: state.results.men,
-      women: state.results.women,
-      updatedAt: Date.now(),
-    }).catch(err => alert('Could not save results: ' + err.message));
-  }, 500);
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
-function setLocked(locked) {
-  if (!db) return;
-  writeTournamentDocument(META_COLL, 'config', { locked }, { merge: true })
-    .catch(err => alert('Could not update lock: ' + err.message));
+function setLocked() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
-function setTournamentComplete(tournamentComplete) {
-  if (!db) return;
-  writeTournamentDocument(META_COLL, 'config', { tournamentComplete }, { merge: true })
-    .catch(err => alert('Could not update wrap-up status: ' + err.message));
+function setTournamentComplete() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 // ---------------------------------------------------------------------------
@@ -2361,82 +2327,25 @@ function slug(name) {
 }
 
 // Step 2 of sign-in: validate (returning) or set (new) the PIN for the name.
-function submitPin(pin) {
-  const name = state.pendingName;
-  const existing = state.entries[slug(name)];
-  const returning = !!(existing && existing.pin);
-  if (returning) {
-    if (pin === String(existing.pin)) {
-      enterBracket(name, existing.pin);
-    } else {
-      state.pinError = 'Incorrect PIN. Try again, or ask the commissioner to look it up.';
-      render();
-    }
-    return;
-  }
-  if (!/^\d{4}$/.test(pin)) {
-    state.pinError = 'Please choose a 4-digit PIN (numbers only).';
-    render();
-    return;
-  }
-  enterBracket(name, pin);
+function submitPin() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 // Load (or create) the bracket for this name and enter the app.
-function enterBracket(name, pin) {
-  const uid = slug(name);
-  state.userId = uid;
-  state.userName = name;
-  state.userPin = String(pin);
-  const existing = state.entries[uid];
-  state.myPicks = existing
-    ? { men: normalizePicks(existing.men), women: normalizePicks(existing.women) }
-    : { men: emptyPicks(), women: emptyPicks() };
-  state.myPicksLoaded = true;
-  state.pendingName = null;
-  state.pinError = null;
-  identityStorage.setItem('usopen2026_uid', uid);
-  identityStorage.setItem('usopen2026_name', name);
-  state.view = 'bracket';
-  history.replaceState(null, '', '#bracket');
-  saveMyEntry();
-  render();
+function enterBracket() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 function newBracket() {
-  if (!confirm('Start a fresh bracket as a different person? Your current device will switch to the new entry.')) return;
-  identityStorage.removeItem('usopen2026_uid');
-  identityStorage.removeItem('usopen2026_name');
-  location.reload();
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
-function doPick(r, m, slot) {
-  if (state.config.locked) return;
-  const picks = state.myPicks[state.event];
-  picks['r' + r][m] = slot;
-  validate(picks);
-  saveMyEntry();
-  render();
+function doPick() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
-function doResult(r, m, slot) {
-  if (!state.commish) return;
-  const before = state.results[state.event];
-  const next = normalizePicks(before);
-  next['r' + r][m] = before['r' + r][m] === slot ? null : slot;
-  reconcileResults(next);
-  const cleared = [];
-  for (let rr = r + 1; rr < 7; rr++) {
-    before['r' + rr].forEach((winner, match) => {
-      if (winner !== null && next['r' + rr][match] === null) {
-        cleared.push(`${ROUND_SHORT[rr]} match ${match + 1}: ${label(DRAWS[state.event], winner)}`);
-      }
-    });
-  }
-  if (cleared.length && !confirm('This correction will clear these later-round results:\n\n' + cleared.join('\n') + '\n\nContinue? Cancel keeps all results unchanged.')) return;
-  state.results[state.event] = next;
-  saveResults();
-  render();
+function doResult() {
+  // Frozen archive: deliberately no writes or identity changes.
 }
 
 // ---------------------------------------------------------------------------
@@ -2448,78 +2357,29 @@ function render() {
   if (NEEDS_SETUP) { appEl.innerHTML = setupScreen(); return; }
   if (state.error) { appEl.innerHTML = errorScreen(state.error); return; }
   if (!state.ready) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Connecting…</div>'; return; }
-  if (!state.userId) { appEl.innerHTML = welcomeScreen(); return; }
-  if (!state.myPicks) { appEl.innerHTML = '<div class="center muted" style="padding:40px">Loading your bracket…</div>'; return; }
+  let archiveBody;
+  if (state.viewingEntryId) archiveBody = entryView();
+  else if (state.view === 'draw') archiveBody = drawView();
+  else if (state.view === 'leaderboard') archiveBody = leaderboardView();
+  else archiveBody = recapView();
+  appEl.innerHTML = header() + archiveBody + footer() + playerModalHTML();
+  return;
 
-  // The shareable one-pager takes over the whole screen (no header/tabs) so it's
-  // clean to screenshot.
-  if (state.shareCard) { appEl.innerHTML = shareCardView(); return; }
-
-  let body;
-  if (state.viewingEntryId) body = entryView();
-  else if (state.view === 'draw') body = drawView();
-  else if (state.view === 'leaderboard') body = leaderboardView();
-  else if (state.view === 'recap') body = recapView();
-  else if (state.view === 'commissioner') body = commissionerView();
-  else if (state.view === 'archive') body = archiveView();
-  else body = bracketView();
-
-  appEl.innerHTML = header() + body + footer() + playerModalHTML();
-
-  // After a swipe commits, slide the freshly-rendered round in from the
-  // direction the next round is "coming from" so the change feels continuous.
-  if (state._slideIn) {
-    const from = state._slideIn === 'right' ? 100 : -100;
-    state._slideIn = null;
-    const pane = appEl.querySelector('.round-pane');
-    if (pane) {
-      pane.style.transition = 'none';
-      pane.style.transform = `translateX(${from}%)`;
-      pane.style.opacity = '0.4';
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        pane.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
-        pane.style.transform = 'translateX(0)';
-        pane.style.opacity = '1';
-      }));
-    }
-  }
 }
 
 function header() {
-  const tab = (v, lbl) =>
-    `<button class="${state.view === v && !state.viewingEntryId ? 'active' : ''}" data-action="nav" data-view="${v}">${lbl}</button>`;
-  return `
-    <header class="app-head">
-      <div class="header-top">
-      <div class="brand">
-        <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-        <div class="subtitle">US Open 2026</div>
-        <div class="reign">👑 Reigning champion of the court: Adrian</div>
-      <div class="whoami">Playing as <strong>${esc(state.userName)}</strong>
-        · <a data-action="new-bracket">not you?</a></div>
-      </div>
-      <nav class="header-utilities" aria-label="Tournament tools">
-        ${tab('commissioner', 'Commissioner ↗')}
-        ${tab('archive', 'Past Tournaments ↗')}
-      </nav>
-      </div>
-      <nav class="tabs">
-        ${tab('bracket', '✏️ My Bracket')}
-        ${tab('draw', '🎾 Draw')}
-        ${tab('leaderboard', '🏆 Leaderboard')}
-        ${tab('recap', '📅 Daily Recap')}
-      </nav>
-    </header>`;
+  const tab = (v, label) => `<button class="${state.view === v ? 'active' : ''}" data-action="nav" data-view="${v}">${label}</button>`;
+  return `<header class="app-head"><div class="brand">
+    <h1 class="title">Kiwi House Family Bracket Challenge</h1>
+    <div class="subtitle">Wimbledon 2026 · Archive</div></div>
+    <p class="center small">Read-only archive · <a href="/">Current tournament</a> · <a href="/rg2026/">Roland Garros 2026</a></p>
+    <nav class="tabs">${tab('recap', '📰 Recap')}${tab('leaderboard', 'Leaderboard & Brackets')}${tab('draw', '🎾 Draw')}</nav></header>`;
 }
 
 // Past tournaments — links out to each finished tournament's read-only archive.
 function archiveView() {
   return `<div class="panel"><h2>Past Tournaments</h2>
     <p class="muted small">Browse the recap and every family member's bracket from past tournaments.</p>
-    <a class="archive-card" href="/wim2026/">
-      <span class="ac-emoji">🎾</span><span class="ac-body"><span class="ac-title">Wimbledon 2026</span>
-      <span class="ac-sub">Recap, leaderboard &amp; brackets</span></span><span class="ac-go">→</span>
-    </a>
     <a class="archive-card" href="/rg2026/">
       <span class="ac-emoji">🎾</span>
       <span class="ac-body">
@@ -2533,8 +2393,7 @@ function archiveView() {
 
 function footer() {
   return `<div class="foot">Picks: 10 / 20 / 40 / 80 / 160 / 320 / 640 points per correct
-    result, R128 → Final. Champion pick = 640.
-    <div class="data-credit"><a href="sources/player-reference/README.md" target="_blank" rel="noopener noreferrer">Data credits</a></div></div>`;
+    result, R128 → Final. Champion pick = 640.</div>`;
 }
 
 // ---- event + round selectors ----
@@ -2586,11 +2445,10 @@ function matchList(picks, event, r, action, results) {
   for (let m = 0; m < ROUND_SIZES[r]; m++) {
     const c = contenders(picks, r, m);
     const picked = picks['r' + r][m];
-    const pair = c.every(s => Number.isInteger(s)) ? c : null;
     html += `<div class="match"><span class="mno">${m + 1}</span>`
-      + optBtn(draw, c[0], r, m, picked, action, results, event, pair)
+      + optBtn(draw, c[0], r, m, picked, action, results, event)
       + `<span class="vs">v</span>`
-      + optBtn(draw, c[1], r, m, picked, action, results, event, pair)
+      + optBtn(draw, c[1], r, m, picked, action, results, event)
       + `</div>`;
   }
   return html + '</div>';
@@ -2925,7 +2783,7 @@ function leaderboardView() {
     </tr></thead><tbody>`;
   rows.forEach((r, i) => {
     const me = r.id === state.userId;
-    const canOpen = locked || me;
+    const canOpen = true; // All archived brackets are viewable.
     html += `<tr class="${me ? 'me ' : ''}${canOpen ? 'clickable' : ''}"
       ${canOpen ? `data-action="view-entry" data-id="${r.id}"` : ''}>
       <td class="rank">${i === 0 && r.total > 0 ? '<span class="leader-crown">♛</span>' : (i + 1)}</td>
@@ -2936,7 +2794,7 @@ function leaderboardView() {
     </tr>`;
   });
   html += `</tbody></table>`;
-  html += locked
+  html += true
     ? `<p class="small muted">Tap a row to view that bracket.</p>`
     : `<p class="small muted">Other players' picks stay hidden until brackets lock.</p>`;
   html += `</div>`;
@@ -2957,7 +2815,7 @@ function entryView() {
 
   // Switcher lists every viewable bracket (all of them once locked, else just
   // yours) so you can hop between brackets without going back to the leaderboard.
-  const viewable = Object.values(state.entries).filter(x => x.name && (state.config.locked || x.id === state.userId))
+  const viewable = Object.values(state.entries).filter(x => x.name)
     .sort((a, b) => a.name.localeCompare(b.name));
   let html = `<div class="panel">
     <div class="entry-head">
@@ -3005,12 +2863,13 @@ function drawView() {
   // results are in (tab clicks already do this via currentDrawRound()).
   if (state._pendingDrawRound && hasResults()) { state.round = currentDrawRound(); state._pendingDrawRound = false; }
   const picks = state.results[state.event];
-  let html = eventSeg();
-  html += `<div class="banner warn">Follow both draws as the rounds play out. Tap the
+  let html = `<div class="panel"><h2>🎾 The Draw</h2>
+    <p class="muted small">Follow both draws as the rounds play out. Tap the
     <span class="info-dot-inline">i</span> on any player for their profile and to
-    see who in the pool picked them.</div>`;
+    see who in the pool picked them.</p>`;
+  html += eventSeg();
   html += roundSeg(picks);
-  html += `<div class="panel"><h2>${ROUND_NAMES[state.round]} — ${EVENTS.find(e => e[0] === state.event)[1]}</h2>`;
+  html += `<h2 style="margin-top:12px">${ROUND_NAMES[state.round]} — ${EVENTS.find(e => e[0] === state.event)[1]}</h2>`;
   html += matchArea(picks, state.event, state.round, null, null);
   if (state.round === 6) {
     const champ = picks.r6[0];
@@ -3027,7 +2886,6 @@ function commissionerView() {
     return `<div class="panel"><h2>Commissioner</h2>
       <p class="muted">Enter the commissioner password to record match results and
       lock the brackets.</p>
-      ${LOCAL_PREVIEW ? '<button class="btn" data-action="preview-commissioner">Try commissioner tools locally</button>' : ''}
       <form data-form="commish">
         <input type="password" name="pw" placeholder="Commissioner password" autocomplete="off" />
         <button class="btn" type="submit">Unlock commissioner tools</button>
@@ -3088,10 +2946,10 @@ function commissionerView() {
 function welcomeScreen() {
   const hero = `
     <div class="welcome-hero">
-      <img class="hero-logo" src="usopen-logo.webp?v=20260830-0002" alt="US Open 2026"
+      <img class="hero-logo" src="logo.png?v=20260626-2000" alt="Wimbledon 2026"
         onerror="rgLogoFallback(this)" />
       <h1 class="title">Kiwi House<br>Family Bracket Challenge</h1>
-      <div class="subtitle">US Open 2026</div>
+      <div class="subtitle">Wimbledon 2026</div>
       <p class="hero-tagline">Men's &amp; Women's singles predictions</p>
       <div class="reign">👑 Reigning champion of the court: Adrian</div>
     </div>`;
@@ -3142,7 +3000,7 @@ function setupScreen() {
   return `
     <header class="app-head"><div class="brand">
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-      <div class="subtitle">US Open 2026</div></div></header>
+      <div class="subtitle">Wimbledon 2026</div></div></header>
     <div class="panel">
       <h2>One-time setup needed</h2>
       <p>This app needs a free Firebase project so everyone's picks and the
@@ -3174,7 +3032,7 @@ function errorScreen(err) {
   return `
     <header class="app-head"><div class="brand">
       <h1 class="title">Kiwi House Family Bracket Challenge</h1>
-      <div class="subtitle">US Open 2026</div></div></header>
+      <div class="subtitle">Wimbledon 2026</div></div></header>
     <div class="panel">
       <h2>Can't reach the database</h2>
       ${perm ? `<p>Firestore is rejecting requests — the security rules still need
@@ -3209,8 +3067,7 @@ appEl.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (a === 'preview-commissioner' && LOCAL_PREVIEW) { state.commish = true; render(); }
-  else if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.chartTip = null; state.round = el.dataset.view === 'draw' ? currentDrawRound() : 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
+  if (a === 'nav') { state.view = el.dataset.view; state.viewingEntryId = null; state.chartTip = null; state.round = el.dataset.view === 'draw' ? currentDrawRound() : 0; history.replaceState(null, '', '#' + el.dataset.view); render(); }
   else if (a === 'chart-pt') {
     const key = el.dataset.key;
     state.chartTip = (state.chartTip && state.chartTip.key === key)
@@ -3403,7 +3260,7 @@ async function checkForUpdate() {
     const base = location.href.replace(/[^/]*([?#].*)?$/, '');
     const res = await fetch(base + 'index.html?_=' + BUILD, { cache: 'no-store' });
     if (!res.ok) return;
-    const m = (await res.text()).match(/app\.js\?v=([0-9-]+)/);
+    const m = (await res.text()).match(/app\.js\?v=([A-Za-z0-9-]+)/);
     if (m && m[1] !== BUILD) showUpdateBanner();
   } catch (e) { /* offline / blocked — try again next tick */ }
 }
@@ -3416,12 +3273,6 @@ function startUpdateChecks() {
 // Boot
 // ---------------------------------------------------------------------------
 mountBallRain();
-if (LOCAL_PREVIEW) {
-  const notice = document.createElement('div');
-  notice.className = 'preview-notice';
-  notice.textContent = 'LOCAL PREVIEW · No Firebase connection or production writes. Changes stay in this tab and reset on reload.';
-  document.body.prepend(notice);
-}
 if (NEEDS_SETUP) {
   render();
 } else {

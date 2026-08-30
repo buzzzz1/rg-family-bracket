@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 150" role="img" aria-labelledby="title">
+  <title id="title">US Open 2026 — Kiwi House family bracket</title>
+  <rect x="2" y="2" width="396" height="146" rx="24" fill="#10285e"/>
+  <circle cx="66" cy="74" r="33" fill="#f5d537"/>
+  <path d="M43 50 Q72 73 43 98 M88 50 Q60 74 88 98" fill="none" stroke="#fff" stroke-width="4"/>
+  <text x="122" y="73" font-family="Arial,sans-serif" font-weight="800" font-size="43" fill="#fff">US OPEN</text>
+  <text x="126" y="108" font-family="Arial,sans-serif" font-weight="700" font-size="22" letter-spacing="8" fill="#f5d537">2026</text>
+</svg>
