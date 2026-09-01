@@ -21,7 +21,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260901-0010';
+const BUILD = '20260901-0011';
 // Recaps summarize manually entered results since the commissioner checkpoint.
 // No schedule feed, result feed, winner prediction, or automatic result writes.
 const WATCH_DATE = '';
@@ -3434,7 +3434,10 @@ appEl.addEventListener('submit', e => {
     state.playerSearch = e.target.query.value.trim();
     const exact = EVENTS.flatMap(([ev]) => DRAWS[ev].map((player, slot) => ({ ev, slot, player })))
       .find(item => item.player.fullName.toLocaleLowerCase() === state.playerSearch.toLocaleLowerCase());
-    if (exact) state.playerModal = { ev: exact.ev, slot: exact.slot, pair: null };
+    if (exact) {
+      state.playerSearch = '';
+      state.playerModal = { ev: exact.ev, slot: exact.slot, pair: null };
+    }
     render();
   } else if (form === 'pin') {
     submitPin(e.target.pin.value.trim());
