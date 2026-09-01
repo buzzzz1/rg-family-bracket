@@ -104,6 +104,21 @@ assert(seedRecap.includes('aria-label=\"Seed 2: still in'));
 local.run("state.results.men.r0[0] = null");
 console.log('PASS: recap renders both seed-survivor grids with live/out states');
 
+// Player search is a read-only view over the draw/reference data and live manual results.
+local.run("state.playerSearch = 'Zverev'");
+const playerSearch = local.run('playerSearchView()');
+assert(playerSearch.includes('Alexander Zverev'));
+assert(playerSearch.includes('Rank #2'));
+assert(playerSearch.includes('Still in'));
+assert.equal(local.run("playerTournamentStatus('men', 0).label"), 'Still in');
+local.run("state.results.men.r0[0] = 1");
+assert.equal(local.run("playerTournamentStatus('men', 0).label"), 'Out');
+assert(local.run("playerTournamentStatus('men', 0).detail").includes('Round of 128'));
+assert(local.run("state.playerModal = {ev:'men',slot:0,pair:null}; playerModalHTML()").includes('× Out'));
+local.run("state.results.men.r0[0] = null");
+console.log('PASS: player search finds profiles and cards show live tournament status');
+
+
 
 assert.equal(local.run(`(() => { const p = emptyPicks(); for (let r=0;r<7;r++) p['r'+r] = Array.from({length:ROUND_SIZES[r]},(_,m)=>m * 2**(r+1)); return score(p,p).total; })()`), 4480);
 console.log('PASS: unchanged perfect-draw score of 4,480');
