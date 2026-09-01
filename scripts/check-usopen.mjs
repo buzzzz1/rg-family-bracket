@@ -95,6 +95,16 @@ local.run('state.results.men = emptyPicks(); state.results.men.r1[0] = 0; doResu
 assert.equal(local.run('state.results.men.r1[0]'), 0);
 console.log('PASS: correction confirmation, cancellation, and incomplete-feeder result preservation');
 
+// Daily recap keeps the 1-32 survivor maps while its fallen-seed list is checkpoint-scoped.
+local.run("state.results.men.r0[0] = 1");
+const seedRecap = local.run('dailyRecapView()');
+assert.equal((seedRecap.match(/class=\"seed-grid\"/g) || []).length, 2);
+assert(seedRecap.includes('seed-chip out\" aria-label=\"Seed 1: out'));
+assert(seedRecap.includes('aria-label=\"Seed 2: still in'));
+local.run("state.results.men.r0[0] = null");
+console.log('PASS: recap renders both seed-survivor grids with live/out states');
+
+
 assert.equal(local.run(`(() => { const p = emptyPicks(); for (let r=0;r<7;r++) p['r'+r] = Array.from({length:ROUND_SIZES[r]},(_,m)=>m * 2**(r+1)); return score(p,p).total; })()`), 4480);
 console.log('PASS: unchanged perfect-draw score of 4,480');
 

@@ -21,7 +21,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260830-0007';
+const BUILD = '20260901-0008';
 // Recaps summarize manually entered results since the commissioner checkpoint.
 // No schedule feed, result feed, winner prediction, or automatic result writes.
 const WATCH_DATE = '';
@@ -1503,7 +1503,17 @@ function dailyRecapView() {
     html += `</div></div>`;
   }
 
-  // Seeds out today — only the seeds that fell in this day's matches.
+  // Seed map shows the full tournament picture: surviving seeds highlighted,
+  // eliminated seeds muted. The list beneath remains scoped to this recap only.
+  const seedMap = (ev) => {
+    const alive = aliveSeedSet(ev);
+    let grid = '<div class="seed-grid" aria-label="Seed status; highlighted seeds remain in the tournament">';
+    for (let n = 1; n <= 32; n++) {
+      const isAlive = alive.has(n);
+      grid += `<span class="seed-chip${isAlive ? '' : ' out'}" aria-label="Seed ${n}: ${isAlive ? 'still in' : 'out'}">${n}</span>`;
+    }
+    return grid + '</div>';
+  };
   const fList = (items) => `<ul class="fs-list">${items.map(s =>
     `<li><span class="fs-seed">${s.seed}</span><span class="fs-name">${esc(s.name)}</span><span class="fs-by">lost to ${esc(s.by)}</span></li>`).join('')}</ul>`;
   const fColumn = (ev, lbl) => {
@@ -1512,7 +1522,7 @@ function dailyRecapView() {
       .map(t => ({ seed: draw[t.loser].seed, name: draw[t.loser].name, by: draw[t.winner].name }))
       .filter(x => x.seed).sort((a, b) => a.seed - b.seed);
     const body = fell.length ? fList(fell) : `<p class="muted small" style="margin:0">No seeds fell.</p>`;
-    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${body}</div>`;
+    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${body}</div>`;
   };
   html += `<div class="panel"><h2>📉 Seeds Out Since Last Recap</h2><div class="fallen2">
     ${fColumn('men', 'Men')}
