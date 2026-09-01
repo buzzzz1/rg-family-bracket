@@ -21,7 +21,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260901-0011';
+const BUILD = '20260901-0012';
 // Recaps summarize manually entered results since the commissioner checkpoint.
 // No schedule feed, result feed, winner prediction, or automatic result writes.
 const WATCH_DATE = '';
@@ -96,7 +96,9 @@ const state = {
   commish: false,
   viewingEntryId: null,
   playerModal: null,        // { ev, slot } when a player info card is open
-  playerSearch: '',         // submitted player-name search
+  playerSearch: '',         // player-name search input
+  playerSearchSelection: null, // { ev, slot } shown inline on the search page
+  playerSearchError: null,
   shareCard: false,         // true when the screenshot-friendly one-pager is open
   ready: false,
 };
@@ -2194,42 +2196,43 @@ function playerTournamentStatus(ev, slot) {
   }
   return { alive: true, label: 'Champion', detail: 'Won the US Open' };
 }
+function allSearchPlayers() {
+  return EVENTS.flatMap(([ev, eventLabel]) => DRAWS[ev].map((player, slot) => ({ ev, eventLabel, slot, player })))
+    .sort((a, b) => a.player.fullName.localeCompare(b.player.fullName) || a.eventLabel.localeCompare(b.eventLabel));
+}
+
+function selectSearchedPlayer(value) {
+  state.playerSearch = String(value || '').trim();
+  const exact = allSearchPlayers().find(item => item.player.fullName.toLocaleLowerCase() === state.playerSearch.toLocaleLowerCase());
+  state.playerSearchSelection = exact ? { ev: exact.ev, slot: exact.slot } : null;
+  state.playerSearchError = state.playerSearch && !exact ? 'Choose a player from the alphabetical suggestions.' : null;
+  render();
+}
+
 function playerSearchView() {
-  const query = state.playerSearch.trim().toLocaleLowerCase();
-  const players = EVENTS.flatMap(([ev, eventLabel]) => DRAWS[ev].map((player, slot) => ({ ev, eventLabel, slot, player })))
-    .filter(item => !query || `${item.player.fullName} ${item.player.name}`.toLocaleLowerCase().includes(query))
-    .sort((a, b) => a.player.fullName.localeCompare(b.player.fullName));
-  const shown = query ? players.slice(0, 24) : [];
-  const options = EVENTS.flatMap(([ev]) => DRAWS[ev].map(player => `<option value="${esc(player.fullName)}"></option>`)).join('');
+  const players = allSearchPlayers();
+  const selected = state.playerSearchSelection;
+  const options = players.map(({ player, eventLabel }) =>
+    `<option value="${esc(player.fullName)}">${esc(eventLabel)}</option>`).join('');
   return `<section class="player-search-page">
     <div class="panel player-search-panel">
       <h2>🔎 Search Players</h2>
+      <p class="muted small">Start typing a first or last name, then choose from the alphabetical list.</p>
       <form data-form="player-search" class="player-search-form">
         <label class="field-label" for="player-search-input">Player name</label>
         <div class="player-search-controls">
-          <input id="player-search-input" name="query" type="text" list="player-search-options" value="${esc(state.playerSearch)}" placeholder="Start typing a player’s name" autocomplete="off" />
+          <input id="player-search-input" name="query" type="text" list="player-search-options" value="${esc(state.playerSearch)}" placeholder="e.g. Coco Gauff" autocomplete="off" />
           <datalist id="player-search-options">${options}</datalist>
-          <button class="btn" type="submit">Search</button>
+          <button class="btn" type="submit">Show player</button>
         </div>
+        ${state.playerSearchError ? `<p class="player-search-error" role="alert">${esc(state.playerSearchError)}</p>` : ''}
       </form>
     </div>
-    ${!query ? `<p class="player-search-prompt">Search all 256 players in the men’s and women’s draws.</p>`
-      : shown.length ? `<div class="player-search-results" aria-live="polite">${shown.map(({ ev, eventLabel, slot, player }) => {
-          const status = playerTournamentStatus(ev, slot);
-          const ref = PLAYER_REFERENCE.profiles[ev][player.fullName] || {};
-          const meta = [eventLabel, player.seed ? `Seed ${player.seed}` : null, typeof ref.rank === 'number' ? `Rank #${ref.rank}` : null].filter(Boolean).join(' · ');
-          return `<button class="player-search-result" data-action="info" data-ev="${ev}" data-slot="${slot}">
-            <span class="player-search-main">${flagImg(DRAWS[ev], slot)}<span><strong>${esc(player.fullName)}</strong><small>${esc(meta)}</small></span></span>
-            <span class="player-search-status"><span class="player-status ${status.alive ? 'alive' : 'out'}">${status.alive ? '●' : '×'} ${status.label}</span><small>${esc(status.detail)}</small></span>
-          </button>`;
-        }).join('')}</div>${players.length > shown.length ? `<p class="muted small center">Showing the first ${shown.length} matches. Add more of the name to narrow the search.</p>` : ''}`
-      : `<p class="player-search-prompt" role="status">No players matched “${esc(state.playerSearch)}”.</p>`}
+    ${selected ? playerProfileCardHTML(selected.ev, selected.slot, null, true)
+      : `<p class="player-search-prompt">Choose a player to see tournament status, family bracket impact, rankings, results and projected path.</p>`}
   </section>`;
 }
-
-function playerModalHTML() {
-  if (!state.playerModal) return '';
-  const { ev, slot, pair } = state.playerModal;
+function playerProfileCardHTML(ev, slot, pair, inline = false) {
   const draw = DRAWS[ev];
   const entrant = draw && draw[slot];
   if (!entrant) return '';
@@ -2265,9 +2268,8 @@ function playerModalHTML() {
          `<div class="pm-srow"><span class="pm-slbl">${esc(b.name)}</span><span class="pm-sval">Picked through ${b.stage}</span></div>`
        ).join('')}</div>` : ''}</section>`
     : `<section class="pm-pool"><div class="pm-sub">In the family brackets</div><p class="pm-empty">Bracket details will appear after the commissioner locks picks.</p></section>`;
-  return `<div class="pm-backdrop" data-action="close-player">
-    <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
-      <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
+  return `<article class="pm-card${inline ? ' inline' : ''}"${inline ? '' : ' role="dialog" aria-modal="true" data-action="pm-stop"'}>
+      ${inline ? '' : `<button class="pm-close" data-action="close-player" aria-label="Close">×</button>`}
       ${switcher}
       <div class="pm-updated">Stats through Cincinnati · Rankings Aug 24</div>
       <div class="pm-head">
@@ -2301,8 +2303,13 @@ function playerModalHTML() {
           `<li><span class="pm-pr">${ROUND_SHORT[r]}</span>${flagImg(draw, opp)}<span class="pm-pname">${esc(label(draw, opp))}</span></li>`
         ).join('')}
       </ol>
-    </div>
-  </div>`;
+    </article>`;
+}
+
+function playerModalHTML() {
+  if (!state.playerModal) return '';
+  const { ev, slot, pair } = state.playerModal;
+  return `<div class="pm-backdrop" data-action="close-player">${playerProfileCardHTML(ev, slot, pair, false)}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -3423,6 +3430,10 @@ appEl.addEventListener('touchend', e => {
   }
 }, { passive: false });
 
+appEl.addEventListener('change', e => {
+  if (e.target.id === 'player-search-input') selectSearchedPlayer(e.target.value);
+});
+
 appEl.addEventListener('submit', e => {
   e.preventDefault();
   const form = e.target.dataset.form;
@@ -3431,14 +3442,7 @@ appEl.addEventListener('submit', e => {
     if (name) { state.pendingName = name; state.pinError = null; render(); }
     else alert('Please pick your name from the dropdown.');
   } else if (form === 'player-search') {
-    state.playerSearch = e.target.query.value.trim();
-    const exact = EVENTS.flatMap(([ev]) => DRAWS[ev].map((player, slot) => ({ ev, slot, player })))
-      .find(item => item.player.fullName.toLocaleLowerCase() === state.playerSearch.toLocaleLowerCase());
-    if (exact) {
-      state.playerSearch = '';
-      state.playerModal = { ev: exact.ev, slot: exact.slot, pair: null };
-    }
-    render();
+    selectSearchedPlayer(e.target.query.value);
   } else if (form === 'pin') {
     submitPin(e.target.pin.value.trim());
   } else if (form === 'commish') {

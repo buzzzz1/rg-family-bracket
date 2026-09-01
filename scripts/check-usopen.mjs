@@ -105,10 +105,16 @@ local.run("state.results.men.r0[0] = null");
 console.log('PASS: recap renders both seed-survivor grids with live/out states');
 
 // Player search is a read-only view over the draw/reference data and live manual results.
-local.run("state.playerSearch = 'Zverev'");
+local.run("state.playerSearch = 'Alexander Zverev'; state.playerSearchSelection = {ev:'men',slot:0}");
 const playerSearch = local.run('playerSearchView()');
 assert(playerSearch.includes('Alexander Zverev'));
-assert(playerSearch.includes('Rank #2'));
+assert(playerSearch.includes('Current ATP ranking'));
+assert(playerSearch.includes('#2'));
+assert(playerSearch.includes('pm-card inline'));
+assert(!playerSearch.includes('role=\"dialog\"'));
+const names = local.run('allSearchPlayers().map(x => x.player.fullName)');
+assert.equal(JSON.stringify(names), JSON.stringify([...names].sort((a,b) => a.localeCompare(b))));
+assert.equal(local.run("allSearchPlayers().find(x => x.player.fullName === 'Alexander Zverev').slot"), 0);
 assert(playerSearch.includes('Still in'));
 assert.equal(local.run("playerTournamentStatus('men', 0).label"), 'Still in tournament');
 local.run("state.results.men.r0[0] = 1");
