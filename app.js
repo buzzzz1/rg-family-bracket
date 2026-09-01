@@ -21,7 +21,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260901-0009';
+const BUILD = '20260901-0010';
 // Recaps summarize manually entered results since the commissioner checkpoint.
 // No schedule feed, result feed, winner prediction, or automatic result writes.
 const WATCH_DATE = '';
@@ -2166,21 +2166,34 @@ function matchupReferenceHTML(ev, pair) {
 }
 
 function playerTournamentStatus(ev, slot) {
-  if (isAlive(slot, state.results[ev])) return { alive: true, label: 'Still in' };
   const draw = DRAWS[ev], results = state.results[ev];
-  for (let r = 0; r < 7; r++) {
-    for (let m = 0; m < ROUND_SIZES[r]; m++) {
-      const winner = results['r' + r][m];
-      if (winner === null || winner === undefined) continue;
-      const [a, b] = matchContenders(results, r, m);
-      if ((a === slot || b === slot) && winner !== slot) {
-        return { alive: false, label: 'Out', detail: `Lost in ${ROUND_NAMES[r]} to ${label(draw, winner)}` };
+  if (!isAlive(slot, results)) {
+    for (let r = 0; r < 7; r++) {
+      for (let m = 0; m < ROUND_SIZES[r]; m++) {
+        const winner = results['r' + r][m];
+        if (winner === null || winner === undefined) continue;
+        const [a, b] = matchContenders(results, r, m);
+        if ((a === slot || b === slot) && winner !== slot) {
+          return { alive: false, label: 'Eliminated', detail: `Lost in ${ROUND_NAMES[r]} to ${label(draw, winner)}` };
+        }
       }
     }
+    return { alive: false, label: 'Eliminated', detail: 'Elimination details unavailable' };
   }
-  return { alive: false, label: 'Out' };
+  for (let r = 0; r < 7; r++) {
+    const m = matchOfSlot(slot, r);
+    const winner = results['r' + r][m];
+    if (winner === slot) continue;
+    const [a, b] = matchContenders(results, r, m);
+    const opponent = a === slot ? b : b === slot ? a : null;
+    return {
+      alive: true,
+      label: 'Still in tournament',
+      detail: opponent == null ? `${ROUND_NAMES[r]} · waiting for opponent` : `Next: ${ROUND_NAMES[r]} vs ${label(draw, opponent)}`,
+    };
+  }
+  return { alive: true, label: 'Champion', detail: 'Won the US Open' };
 }
-
 function playerSearchView() {
   const query = state.playerSearch.trim().toLocaleLowerCase();
   const players = EVENTS.flatMap(([ev, eventLabel]) => DRAWS[ev].map((player, slot) => ({ ev, eventLabel, slot, player })))
@@ -2207,7 +2220,7 @@ function playerSearchView() {
           const meta = [eventLabel, player.seed ? `Seed ${player.seed}` : null, typeof ref.rank === 'number' ? `Rank #${ref.rank}` : null].filter(Boolean).join(' · ');
           return `<button class="player-search-result" data-action="info" data-ev="${ev}" data-slot="${slot}">
             <span class="player-search-main">${flagImg(DRAWS[ev], slot)}<span><strong>${esc(player.fullName)}</strong><small>${esc(meta)}</small></span></span>
-            <span class="player-status ${status.alive ? 'alive' : 'out'}">${status.alive ? '●' : '×'} ${status.label}</span>
+            <span class="player-search-status"><span class="player-status ${status.alive ? 'alive' : 'out'}">${status.alive ? '●' : '×'} ${status.label}</span><small>${esc(status.detail)}</small></span>
           </button>`;
         }).join('')}</div>${players.length > shown.length ? `<p class="muted small center">Showing the first ${shown.length} matches. Add more of the name to narrow the search.</p>` : ''}`
       : `<p class="player-search-prompt" role="status">No players matched “${esc(state.playerSearch)}”.</p>`}
@@ -2244,13 +2257,19 @@ function playerModalHTML() {
   };
   const backers = state.config.locked ? pickedBy(ev, slot) : null;
   const status = playerTournamentStatus(ev, slot);
+  const submitted = Object.values(state.entries).filter(entry => entry.name).length;
+  const poolImpact = backers
+    ? `<section class="pm-pool"><div class="pm-sub">In the family brackets</div>
+       <div class="pm-pool-summary">${backers.length ? `Picked in ${backers.length} of ${submitted} submitted bracket${submitted === 1 ? '' : 's'}` : `Not picked to win a match in any of the ${submitted} submitted brackets`}</div>
+       ${backers.length ? `<div class="pm-slams">${backers.map(b =>
+         `<div class="pm-srow"><span class="pm-slbl">${esc(b.name)}</span><span class="pm-sval">Picked through ${b.stage}</span></div>`
+       ).join('')}</div>` : ''}</section>`
+    : `<section class="pm-pool"><div class="pm-sub">In the family brackets</div><p class="pm-empty">Bracket details will appear after the commissioner locks picks.</p></section>`;
   return `<div class="pm-backdrop" data-action="close-player">
     <div class="pm-card" role="dialog" aria-modal="true" data-action="pm-stop">
       <button class="pm-close" data-action="close-player" aria-label="Close">×</button>
       ${switcher}
-      <div class="pm-status ${status.alive ? 'alive' : 'out'}"><strong>${status.alive ? '● Still in' : '× Out'}</strong>${status.detail ? `<span>${esc(status.detail)}</span>` : ''}</div>
       <div class="pm-updated">Stats through Cincinnati · Rankings Aug 24</div>
-      ${hasPair ? matchupReferenceHTML(ev, pair) : ''}
       <div class="pm-head">
         ${flagImg(draw, slot)}
         <div>
@@ -2258,6 +2277,9 @@ function playerModalHTML() {
           ${p.seed ? `<div class="pm-seed">Seed ${p.seed}</div>` : `<div class="pm-seed unseeded">Unseeded</div>`}
         </div>
       </div>
+      <div class="pm-status ${status.alive ? 'alive' : 'out'}"><strong>${status.alive ? '●' : '×'} ${esc(status.label)}</strong><span>${esc(status.detail)}</span></div>
+      ${poolImpact}
+      ${hasPair ? matchupReferenceHTML(ev, pair) : ''}
       ${row('Country', esc(countryName(cc)) || '—')}
       ${row('Age', age != null ? age : '—')}
       ${row('Plays', plays)}
@@ -2272,11 +2294,6 @@ function playerModalHTML() {
         ${slamRow('Wimbledon', p.wim)}
         ${slamRow('US Open', p.uso)}
       </div>
-
-      ${backers ? `<div class="pm-sub">Picked by your pool</div>
-      ${backers.length ? `<div class="pm-slams">${backers.map(b =>
-        `<div class="pm-srow"><span class="pm-slbl">${esc(b.name)}</span><span class="pm-sval">${b.stage}</span></div>`
-      ).join('')}</div>` : `<p class="pm-empty">Nobody in the pool picked them to win a match.</p>`}` : ''}
 
       <div class="pm-sub">Projected path to the title <span class="pm-note2">(if the seeds hold)</span></div>
       <ol class="pm-path">
