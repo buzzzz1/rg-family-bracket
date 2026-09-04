@@ -1,5 +1,5 @@
 Source: https://www.usopen.org/en_US/scores/draws/2026_WS_draw.pdf
-Retrieved: 2026-08-29 (America/New_York)
+Retrieved: 2026-09-03 (America/New_York)
 First-round draw positions only; no match results.
 1. SABALENKA, Aryna [1]
 2. OSORIO, Camila COL
@@ -74,7 +74,7 @@ First-round draw positions only; no match results.
 71. MARIA, Tatjana GER
 72. OSTAPENKO, Jelena LAT [30]
 73. POTAPOVA, Anastasia AUT [24]
-74. VALENTOVA, Tereza CZE
+74. SEMENISTAJA, Darja LAT (L)
 75. RUS, Arantxa NED (Q)
 76. JEANJEAN, Leolia FRA (W)
 77. TAGGER, Lilli AUT

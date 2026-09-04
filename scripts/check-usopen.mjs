@@ -50,7 +50,8 @@ for (const event of ['men', 'women']) {
   assert.equal(rows.length, 128);
   assert.equal(data[event].length, 128);
   assert.equal(new Set(data[event].map(p => p.fullName)).size, 128);
-  assert.deepEqual(data[event].filter(p => p.seed).map(p => p.seed).sort((a,b) => a-b), Array.from({length:32},(_,i)=>i+1));
+  const expectedSeeds = Array.from({length:32},(_,i)=>i+1).filter(seed => event !== 'men' || seed !== 19);
+  assert.deepEqual(data[event].filter(p => p.seed).map(p => p.seed).sort((a,b) => a-b), expectedSeeds);
   rows.forEach((line, index) => {
     assert.equal(data[event][index].entry, line.match(/\(([QWL])\)/)?.[1] || null);
     assert.equal(data[event][index].drawPosition, index + 1);
@@ -59,7 +60,22 @@ for (const event of ['men', 'women']) {
     assert.equal(data[event][index].fullName.toUpperCase(), `${named[1]} ${named[0]}`.toUpperCase());
   });
 }
-console.log('PASS: all 256 positions/names and both sets of 32 seeds match official transcripts');
+console.log('PASS: all 256 positions/names and post-withdrawal seeds match official transcripts');
+
+assert.deepEqual(
+  [[18,'Yunchaokete Bu'],[24,'Arthur Gea'],[87,'Otto Virtanen']].map(([position,name]) => {
+    const p = data.men[position - 1]; return [p.drawPosition,p.fullName,p.entry,p.seed];
+  }),
+  [[18,'Yunchaokete Bu','L',null],[24,'Arthur Gea','L',null],[87,'Otto Virtanen','L',null]],
+);
+assert.deepEqual(
+  [data.women[73].drawPosition,data.women[73].fullName,data.women[73].entry,data.women[73].seed],
+  [74,'Darja Semenistaja','L',null],
+);
+for (const withdrawn of ['Thanasi Kokkinakis','Casper Ruud','Marin Cilic','Tereza Valentova']) {
+  assert(!Object.values(data).flat().some(p => p.fullName === withdrawn));
+}
+console.log('PASS: all four post-draw replacements occupy their original slots and display as lucky losers');
 
 local.run("state.pendingName = 'Chloe'; submitPin('1234'); doPick(0, 0, 0);");
 local.flush();
@@ -186,6 +202,10 @@ assert.match(referenceApp.run('playerModalHTML()'), /Current ATP ranking<\/span>
 assert.match(referenceApp.run('playerModalHTML()'), /Highest ranking<\/span><span class="pm-val">#2/);
 assert.equal(referenceApp.run("PLAYER_REFERENCE.profiles.men['Alexander Zverev'].titles"), 25); // French Open not double-counted.
 assert.equal(referenceApp.run('PLAYER_REFERENCE.coverage'), 'Through Cincinnati 2026');
+referenceApp.run('state.results.men.r0[0] = 0');
+assert.match(referenceApp.run('shareCardView()'), /Latest recap through 1st round/);
+assert(!referenceApp.run('shareCardView()').includes('Manual results since'));
+referenceApp.run('state.results.men.r0[0] = null');
 assert.equal(referenceApp.writes.length,0);
 assert.equal(referenceApp.storage.length,0);
 const referenceData = JSON.parse(referenceApp.run('JSON.stringify(PLAYER_REFERENCE)'));

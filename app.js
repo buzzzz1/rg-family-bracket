@@ -1,7 +1,7 @@
 // NOTE: keep ?v= in sync with the stamp in index.html on every deploy so a
 // changed draws.js / firebase-config.js is refetched (assets are cached 4h).
-import { DRAWS } from './draws.js?v=20260829-2300';
-import { PLAYER_REFERENCE } from './player-reference.js?v=20260830-0005';
+import { DRAWS } from './draws.js?v=20260903-0001';
+import { PLAYER_REFERENCE } from './player-reference.js?v=20260903-0001';
 import { firebaseConfig, COMMISSIONER_PASSWORD } from './firebase-config.js?v=20260829-2300';
 
 // ---------------------------------------------------------------------------
@@ -21,7 +21,7 @@ const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260901-0012';
+const BUILD = '20260903-0002';
 // Recaps summarize manually entered results since the commissioner checkpoint.
 // No schedule feed, result feed, winner prediction, or automatic result writes.
 const WATCH_DATE = '';
@@ -1555,7 +1555,6 @@ function dailyRecapView() {
 // phone: branding, standings (men/women split + picks correct + today's gain),
 // and the day's two headline beats.
 function shareCardView() {
-  const { dateStr } = tournamentDay();
   const res = state.results;
   const prevRes = state.recapSnapshot
     ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
@@ -1619,7 +1618,7 @@ function shareCardView() {
       <div class="sc-top">
         <div class="sc-emoji">🎾</div>
         <div class="sc-brand">Kiwi House Bracket</div>
-        <div class="sc-meta">${hasResults() ? 'Latest recap' : 'Before play'} · ${esc(ROUND_NAMES[currentRoundIndex()])} · ${esc(dateStr)}</div>
+        <div class="sc-meta">${hasResults() ? 'Latest recap through 1st round' : 'Before play'}</div>
       </div>
       <div class="sc-standings">${rows}</div>
       ${beats.length ? `<div class="sc-beats">${beats.join('')}</div>` : ''}

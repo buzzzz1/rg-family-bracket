@@ -1,5 +1,5 @@
 Source: https://www.usopen.org/en_US/scores/draws/2026_MS_draw.pdf
-Retrieved: 2026-08-29 (America/New_York)
+Retrieved: 2026-09-03 (America/New_York)
 First-round draw positions only; no match results.
 1. ZVEREV, Alexander GER [1]
 2. SONEGO, Lorenzo ITA
@@ -18,13 +18,13 @@ First-round draw positions only; no match results.
 15. FERY, Arthur GBR
 16. MUSETTI, Lorenzo ITA [13]
 17. JODAR, Rafael ESP [12]
-18. KOKKINAKIS, Thanasi AUS
+18. BU, Yunchaokete CHN (L)
 19. MAROZSAN, Fabian HUN
 20. ZHENG, Michael USA (W)
 21. SVAJDA, Zachary USA
 22. ALTMAIER, Daniel GER
 23. CERUNDOLO, Juan Manuel ARG
-24. RUUD, Casper NOR [19]
+24. GEA, Arthur FRA (L)
 25. BERGS, Zizou BEL [31]
 26. TABERNER, Carlos ESP
 27. DE JONG, Jesper NED
@@ -87,7 +87,7 @@ First-round draw positions only; no match results.
 84. CINA, Federico ITA (Q)
 85. MERIDA, Daniel ESP
 86. FUCSOVICS, Marton HUN
-87. CILIC, Marin CRO
+87. VIRTANEN, Otto FIN (L)
 88. RUBLEV, Andrey [23]
 89. ETCHEVERRY, Tomas Martin ARG [27]
 90. KOPRIVA, Vit CZE

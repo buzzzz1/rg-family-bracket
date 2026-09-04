@@ -1,6 +1,6 @@
 # Player reference data
 
-Reviewed August 29, 2026. Rankings are the official August 24 lists. Career totals, Grand Slam bests and H2H include completed events through Cincinnati 2026. **This week's ongoing-event records are not included.** The cards have one compact coverage line, with no Sources dropdown. This document is linked by the small Data credits link in the site footer.
+Reviewed August 29, 2026, with post-draw replacement profiles added September 3. Rankings are the official August 24 lists. Career totals, Grand Slam bests and H2H include completed events through Cincinnati 2026. **This week's ongoing-event records are not included.** The cards have one compact coverage line, with no Sources dropdown. This document is linked by the small Data credits link in the site footer.
 
 No reference-data fetch runs in the website. Everything is compiled offline into `player-reference.js`. The compiler never contacts Firebase and never modifies tournament picks, results, archives, draw order or seeds.
 
@@ -22,7 +22,9 @@ US Open 2026 records are explicitly rejected by normalized event name and tourna
 
 H2H is keyed by displayed players' full names, so it works for hypothetical later rounds in anyone's bracket. Counts include source-classified main draws and team singles, excluding walkovers, defaults, empty scores, Next Gen, and known lower-tier classifications E/C/S/CC/50+H/35+H. Retirements count. Titles exclude team-event finals. Slam names are case-normalized. Source classifications/completeness can differ from official tour totals.
 
-Missing pairings say “No recorded meetings” or “Head-to-head data unavailable”; they are not asserted to be a current 0–0. Ages and official rankings are available for all 256 entrants; 243 have handedness in the base. There are 5,991 pairings with recorded meetings. Jack Kennedy has a separately sourced age and official ranking but no matched match-history identity in the base. Other players may also lack covered tour matches.
+Missing pairings say “No recorded meetings” or “Head-to-head data unavailable”; they are not asserted to be a current 0–0. Ages and official rankings are available for all 256 entrants; 243 have handedness in the base. There are 5,786 pairings between current entrants with recorded meetings. Jack Kennedy has a separately sourced age and official ranking but no matched match-history identity in the base. Other players may also lack covered tour matches.
+
+The September 3 draw replacements have official-tour profile supplements: Yunchaokete Bu, Arthur Gea and Otto Virtanen from ATP player pages, and Darja Semenistaja from her WTA player page. Their covered H2H histories were not rebuilt during the live tournament, so cards explicitly show that H2H data is unavailable rather than guessing a 0–0 record. Pairings involving the four withdrawn entrants were removed from the current-draw H2H table.
 
 Current and highest rankings are separate rows. Unverified prior Wimbledon highs remain unused provenance (`priorHigh`) and show as a dash rather than a guessed value. A prior No. 1 can safely remain a career high. Alexander Zverev's high of No. 2 (first reached June 13, 2022) was checked against his ATP profile on August 29, 2026: https://www.atptour.com/en/players/zverev/z355/overview. His current August 24 ranking is also No. 2.
 
