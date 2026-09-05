@@ -77,6 +77,31 @@ for (const withdrawn of ['Thanasi Kokkinakis','Casper Ruud','Marin Cilic','Terez
 }
 console.log('PASS: all four post-draw replacements occupy their original slots and display as lucky losers');
 
+const day6Rows = read('sources/usopen2026/day6-order-of-play.txt').split('\n').filter(line => /^\d+\./.test(line));
+const expectedDay6Order = day6Rows.map(line => {
+  const event = line.includes('Women R3:') ? 'women' : 'men';
+  const names = line.replace(/^\d+\. (Women|Men) R3: /, '').split(' vs ');
+  const slots = names.map(name => data[event].findIndex(player => player.fullName === name));
+  assert(slots.every(slot => slot >= 0));
+  assert.equal(Math.floor(slots[0] / 8), Math.floor(slots[1] / 8));
+  return [event, 2, Math.floor(slots[0] / 8)];
+});
+assert.equal(expectedDay6Order.length, 16);
+assert.equal(local.run('JSON.stringify(RECAP_ORDER_OF_PLAY)'), JSON.stringify(expectedDay6Order));
+console.log('PASS: Day 6 recap scope and order match the official order-of-play transcript');
+
+const day7Schedule = JSON.parse(local.run('JSON.stringify(TODAY_MATCHES)'));
+assert.equal(day7Schedule.length, 16);
+assert.equal(local.run('WATCH_DATE'), 'Saturday, September 5');
+for (const match of day7Schedule) {
+  const slots = [match.a, match.b].map(name => data[match.ev].findIndex(player => player.name === name));
+  assert(slots.every(slot => slot >= 0), `${match.a} vs ${match.b} must resolve in the draw`);
+  assert.equal(Math.floor(slots[0] / 8), Math.floor(slots[1] / 8));
+}
+assert.equal(local.run('todaysMatches().length'), 16);
+assert(read('sources/usopen2026/day7-order-of-play.txt').includes('schedulePDF14.pdf'));
+console.log('PASS: Matches to Watch contains all 16 official Day 7 singles matchups');
+
 local.run("state.pendingName = 'Chloe'; submitPin('1234'); doPick(0, 0, 0);");
 local.flush();
 assert.equal(local.run('state.entries.chloe.men.r0[0]'), 0);
@@ -111,11 +136,11 @@ local.run('state.results.men = emptyPicks(); state.results.men.r1[0] = 0; doResu
 assert.equal(local.run('state.results.men.r1[0]'), 0);
 console.log('PASS: correction confirmation, cancellation, and incomplete-feeder result preservation');
 
-// Daily recap keeps the 1-32 survivor maps while its fallen-seed list is checkpoint-scoped.
+// Daily recap keeps the 1-32 survivor maps and distinguishes earlier exits.
 local.run("state.results.men.r0[0] = 1");
 const seedRecap = local.run('dailyRecapView()');
 assert.equal((seedRecap.match(/class=\"seed-grid\"/g) || []).length, 2);
-assert(seedRecap.includes('seed-chip out\" aria-label=\"Seed 1: out'));
+assert(seedRecap.includes('seed-chip out\" aria-label=\"Seed 1: eliminated before Day 6'));
 assert(seedRecap.includes('aria-label=\"Seed 2: still in'));
 local.run("state.results.men.r0[0] = null");
 console.log('PASS: recap renders both seed-survivor grids with live/out states');
@@ -127,6 +152,9 @@ assert(playerSearch.includes('Alexander Zverev'));
 assert(playerSearch.includes('Current ATP ranking'));
 assert(playerSearch.includes('#2'));
 assert(playerSearch.includes('pm-card inline'));
+assert(playerSearch.includes('<div class="pm-facts">'));
+assert(playerSearch.indexOf('Country') < playerSearch.indexOf('Grand Slam bests'));
+assert(playerSearch.indexOf('Grand Slam bests') < playerSearch.indexOf('Projected path to the title'));
 assert(!playerSearch.includes('role=\"dialog\"'));
 const names = local.run('allSearchPlayers().map(x => x.player.fullName)');
 assert.equal(JSON.stringify(names), JSON.stringify([...names].sort((a,b) => a.localeCompare(b))));
@@ -160,9 +188,18 @@ local.run(`
   state.results = {men:normalizePicks(fixture), women:normalizePicks(fixture)};
   state.entries = {chloe:{id:'chloe',name:'Chloe',men:normalizePicks(fixture),women:normalizePicks(fixture)}};
   state.recapSnapshot = {men:normalizePicks(fixture),women:normalizePicks(fixture)};
-  state.results.men.r0[0] = 1;
+  state.results.men.r1[2] = 10;
+  state.results.men.r2[8] = 68;
 `);
-assert.match(local.run('dailyRecapView()'), /-10/);
+assert.equal(local.run('recapDayMatches().length'), 1);
+assert.equal(local.run('recapDayMatches()[0].r'), 2);
+assert.equal(local.run('recapDayMatches()[0].m'), 8);
+assert.equal(local.run('RECAP_ORDER_OF_PLAY.length'), 16);
+const dailyDay6 = local.run('dailyRecapView()');
+assert.match(dailyDay6, /Through Day 6/);
+assert.match(dailyDay6, /-40/);
+assert.match(dailyDay6, /seed-chip day-out[^>]+Seed 7: eliminated on Day 6/);
+assert(!dailyDay6.includes('Manual results'));
 assert.match(local.run('generateRecapText()'), /Standings/);
 local.run('state.config.tournamentComplete = true;');
 for (const renderer of ['leaderboardView','recapView','shareCardView','commissionerView','generateFinalRecapText','generateTournamentRecapText']) {
@@ -203,7 +240,7 @@ assert.match(referenceApp.run('playerModalHTML()'), /Highest ranking<\/span><spa
 assert.equal(referenceApp.run("PLAYER_REFERENCE.profiles.men['Alexander Zverev'].titles"), 25); // French Open not double-counted.
 assert.equal(referenceApp.run('PLAYER_REFERENCE.coverage'), 'Through Cincinnati 2026');
 referenceApp.run('state.results.men.r0[0] = 0');
-assert.match(referenceApp.run('shareCardView()'), /Latest recap through 1st round/);
+assert.match(referenceApp.run('shareCardView()'), /Latest recap through Day 6/);
 assert(!referenceApp.run('shareCardView()').includes('Manual results since'));
 referenceApp.run('state.results.men.r0[0] = null');
 assert.equal(referenceApp.writes.length,0);

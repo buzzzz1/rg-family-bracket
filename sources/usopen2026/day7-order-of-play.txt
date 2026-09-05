@@ -1,0 +1,39 @@
+US Open 2026 — Day 7 singles order of play
+Saturday, September 5, 2026
+
+Official source:
+https://www.usopen.org/en_US/scores/2026/schedule/pdf/schedulePDF14.pdf
+
+This reviewed transcript supplies display-only schedule information for the
+Matches to Watch section. It does not contain winners and is never used to
+write results to Firestore.
+
+Arthur Ashe Stadium — 11:30 AM
+1. Men's Singles R3 — Taylor Fritz vs Francisco Cerundolo
+2. Women's Singles R3 — Cristina Bucsa vs Coco Gauff (not before 1:30 PM)
+
+Arthur Ashe Stadium — 7:00 PM
+1. Women's Singles R3 — Iva Jovic vs Alexandra Eala
+2. Men's Singles R3 — Alexander Zverev vs Alejandro Tabilo
+
+Louis Armstrong Stadium — 11:00 AM
+1. Women's Singles R3 — Anastasia Potapova vs Amanda Anisimova
+2. Men's Singles R3 — Alexander Blockx vs Flavio Cobolli
+
+Louis Armstrong Stadium — 7:00 PM
+1. Women's Singles R3 — Naomi Osaka vs Elise Mertens
+2. Men's Singles R3 — Jakub Mensik vs Learner Tien
+
+Grandstand — 11:00 AM
+1. Women's Singles R3 — Madison Keys vs Qinwen Zheng
+2. Women's Singles R3 — Iga Swiatek vs Marie Bouzkova
+3. Men's Singles R3 — Michael Zheng vs Arthur Gea
+4. Women's Singles R3 — Yuliia Starodubtseva vs Elena Rybakina (not before 5:00 PM)
+
+Court 5
+3. Men's Singles R3 — Luciano Darderi vs Dane Sweeny
+
+Stadium 17
+2. Women's Singles R3 — Mirra Andreeva vs Nikola Bartunkova
+3. Men's Singles R3 — Karen Khachanov vs Benjamin Bonzi
+4. Men's Singles R3 — Zizou Bergs vs Botic van de Zandschulp (not before 4:30 PM)

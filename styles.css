@@ -346,6 +346,17 @@ button { font-family: inherit; }
 }
 .pm-lbl { color: var(--muted); }
 .pm-val { font-weight: 700; color: var(--ink); text-align: right; }
+.pm-facts {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; margin-top: 4px;
+}
+.pm-facts .pm-row {
+  min-width: 0; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--cream); flex-direction: column;
+  justify-content: flex-start; gap: 3px;
+}
+.pm-facts .pm-lbl { font-size: 11px; line-height: 1.25; }
+.pm-facts .pm-val { text-align: left; line-height: 1.25; overflow-wrap: anywhere; }
 .pm-empty { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
 .pm-h2h { padding: 10px 12px; margin: 12px 0 18px; background: var(--cream); border: 1px solid var(--line); border-radius: 10px; }
 .pm-h2h .pm-sub { margin-top: 0; }
@@ -395,6 +406,8 @@ button { font-family: inherit; }
   .pm-name { font-size: 18px; }
   .pm-seed { font-size: 11px; }
   .pm-row { padding: 5px 0; font-size: 13px; }
+  .pm-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .pm-facts .pm-row { padding: 8px 10px; }
   .pm-sub { margin: 9px 0 2px; font-size: 11px; }
   .pm-srow { padding: 4px 0; font-size: 13px; }
   .pm-path li { padding: 4px 0; font-size: 13px; }
@@ -532,6 +545,7 @@ button { font-family: inherit; }
   background: var(--clay); color: #fff; font-variant-numeric: tabular-nums;
 }
 .seed-chip.out { background: #ece8f1; color: #b9b2c6; text-decoration: line-through; }
+.seed-chip.day-out { background: var(--gold); color: var(--clay); text-decoration: line-through; }
 
 /* fallen seeds — two columns (men / women) */
 .fallen2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1056,7 +1070,7 @@ nav.tabs button { min-width: 0; }
 @media (min-width: 720px) {
   .pm-card.inline .pm-status, .pm-card.inline .pm-pool, .pm-card.inline .pm-h2h { max-width: none; }
   .pm-card.inline .pm-slams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
-  .pm-card.inline .pm-path { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .pm-card.inline .pm-path { max-width: 620px; }
 }
 @media (max-width: 600px) {
   .player-search-controls { align-items: stretch; flex-direction: column; gap: 0; }

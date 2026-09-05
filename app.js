@@ -15,17 +15,46 @@ const ROUND_SHORT = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'Final'];
 // (count halves, points double), so early-round accuracy and a correct
 // champion are weighted equally.
 const ROUND_POINTS = [10, 20, 40, 80, 160, 320, 640];
+const RECAP_DAY = 6;
+// Official Day 6 order of play, in schedule order. These are bracket match
+// positions, not winners; commissioner-entered results remain authoritative.
+// Source: sources/usopen2026/day6-order-of-play.txt
+const RECAP_ORDER_OF_PLAY = [
+  ['women', 2, 4], ['men', 2, 15], ['men', 2, 12], ['women', 2, 0],
+  ['men', 2, 14], ['men', 2, 9], ['women', 2, 6], ['women', 2, 2],
+  ['men', 2, 8], ['women', 2, 7], ['men', 2, 13], ['men', 2, 11],
+  ['women', 2, 5], ['women', 2, 1], ['women', 2, 3], ['men', 2, 10],
+];
 // Categorical line colors (dataviz-validated order; assigned to players by a
 // stable key so a person keeps their color regardless of standing).
 const CHART_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
 // Build stamp — keep in sync with the ?v= stamp in index.html. The app polls
 // index.html and shows a "refresh for the new version" banner when this differs
 // from the deployed stamp, so open tabs find out about code updates on their own.
-const BUILD = '20260903-0002';
-// Recaps summarize manually entered results since the commissioner checkpoint.
-// No schedule feed, result feed, winner prediction, or automatic result writes.
-const WATCH_DATE = '';
-const TODAY_MATCHES = []; // Optional manual schedule; intentionally empty at launch.
+const BUILD = '20260905-0001';
+// Recaps summarize commissioner-entered winners within a reviewed tournament-day
+// scope. Matches to Watch is a reviewed copy of the next official order of play;
+// it is display-only and never imports results or writes to Firestore.
+// Source: sources/usopen2026/day7-order-of-play.txt
+const WATCH_DATE = 'Saturday, September 5';
+const TODAY_MATCHES = [
+  { ev: 'men',   a: 'T. Fritz',            b: 'F. Cerundolo',         court: 'Arthur Ashe Stadium', order: '1st match', time: '11:30am' },
+  { ev: 'women', a: 'C. Bucsa',            b: 'C. Gauff',             court: 'Arthur Ashe Stadium', order: '2nd match', time: 'not before 1:30pm' },
+  { ev: 'women', a: 'I. Jovic',            b: 'A. Eala',              court: 'Arthur Ashe Stadium', order: 'Night · 1st match', time: '7:00pm' },
+  { ev: 'men',   a: 'A. Zverev',           b: 'A. Tabilo',            court: 'Arthur Ashe Stadium', order: 'Night · 2nd match' },
+  { ev: 'women', a: 'A. Potapova',         b: 'A. Anisimova',         court: 'Louis Armstrong Stadium', order: '1st match', time: '11:00am' },
+  { ev: 'men',   a: 'A. Blockx',           b: 'F. Cobolli',           court: 'Louis Armstrong Stadium', order: '2nd match' },
+  { ev: 'women', a: 'N. Osaka',            b: 'E. Mertens',           court: 'Louis Armstrong Stadium', order: 'Night · 1st match', time: '7:00pm' },
+  { ev: 'men',   a: 'J. Mensik',           b: 'L. Tien',              court: 'Louis Armstrong Stadium', order: 'Night · 2nd match' },
+  { ev: 'women', a: 'M. Keys',             b: 'Q. Zheng',             court: 'Grandstand', order: '1st match', time: '11:00am' },
+  { ev: 'women', a: 'I. Swiatek',          b: 'M. Bouzkova',          court: 'Grandstand', order: '2nd match' },
+  { ev: 'men',   a: 'M. Zheng',            b: 'A. Gea',               court: 'Grandstand', order: '3rd match' },
+  { ev: 'women', a: 'Y. Starodubtseva',    b: 'E. Rybakina',          court: 'Grandstand', order: '4th match', time: 'not before 5:00pm' },
+  { ev: 'men',   a: 'L. Darderi',          b: 'D. Sweeny',            court: 'Court 5', order: '3rd match' },
+  { ev: 'women', a: 'M. Andreeva',         b: 'N. Bartunkova',        court: 'Stadium 17', order: '2nd match' },
+  { ev: 'men',   a: 'K. Khachanov',        b: 'B. Bonzi',             court: 'Stadium 17', order: '3rd match' },
+  { ev: 'men',   a: 'Z. Bergs',            b: 'B. Van De Zandschulp', court: 'Stadium 17', order: '4th match', time: 'not before 4:30pm' },
+];
 const EVENTS = [['men', "Men's Singles"], ['women', "Women's Singles"]];
 const TOTAL_PICKS = ROUND_SIZES.reduce((a, b) => a + b, 0); // 127 per draw
 
@@ -413,9 +442,10 @@ function familyStats(entries, matches) {
   return { total, correct, byRound, unanimousCorrect, unanimousWrong, splits, hardest, easiest };
 }
 
-// Recap scope is explicit; it never implies an automatically fetched schedule.
+// Recap scope follows the official tournament schedule while winners remain
+// the commissioner's manually entered results.
 function tournamentDay() {
-  return { dateStr: hasResults() ? 'Manual results since the last recap checkpoint' : 'Opening round · Sunday, August 30' };
+  return { day: RECAP_DAY, label: `Through Day ${RECAP_DAY}` };
 }
 
 // Decorated player label for the recap (includes seed in parens if seeded).
@@ -439,7 +469,7 @@ function generateRecapText() {
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
   const todayPoints = {}, todayCorrect = {};
-  entries.forEach(e => { todayPoints[e.id] = e.total - score(e.men, normalizePicks(snap.men)).total - score(e.women, normalizePicks(snap.women)).total; todayCorrect[e.id] = 0; });
+  entries.forEach(e => { todayPoints[e.id] = pointsFromMatches(e, todayAll); todayCorrect[e.id] = 0; });
   for (const t of todayAll) {
     for (const e of entries) {
       if (e[t.event]['r' + t.r][t.m] === t.winner) {
@@ -450,7 +480,7 @@ function generateRecapText() {
 
   const lines = [];
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  lines.push(`🎾 Kiwi House Bracket — ${dateStr} recap`);
+  lines.push(`🎾 Kiwi House Bracket — Day ${RECAP_DAY} recap · ${dateStr}`);
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
   lines.push('');
   lines.push('🏆 Standings');
@@ -458,19 +488,19 @@ function generateRecapText() {
   lines.push('');
 
   if (todayAll.length === 0) {
-    lines.push('(No new results since the last recap.)');
+    lines.push(`(No completed Day ${RECAP_DAY} results yet.)`);
   } else {
     const ranked = entries.slice().sort((a, b) => todayPoints[b.id] - todayPoints[a.id]);
     const mover = ranked[0];
     if (mover && todayPoints[mover.id] > 0) {
-      lines.push(`📈 Mover since recap: ${mover.name} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
+      lines.push(`📈 Mover on Day ${RECAP_DAY}: ${mover.name} (+${todayPoints[mover.id]}, ${todayCorrect[mover.id]}/${todayAll.length})`);
     }
     const maxCorrect = Math.max(...Object.values(todayCorrect));
     if (maxCorrect > 0) {
       const tops = entries.filter(e => todayCorrect[e.id] === maxCorrect).map(e => e.name);
       const sameAsMover = mover && tops.length === 1 && tops[0] === mover.name && todayPoints[mover.id] > 0;
       if (!sameAsMover) {
-        lines.push(`🎯 Best record since recap: ${tops.join(', ')} (${maxCorrect}/${todayAll.length})`);
+        lines.push(`🎯 Best record on Day ${RECAP_DAY}: ${tops.join(', ')} (${maxCorrect}/${todayAll.length})`);
       }
     }
     const todayUpsets = todayAll.map(t => {
@@ -485,7 +515,7 @@ function generateRecapText() {
       const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
         : whoHad.length === 1 ? `only ${whoHad[0]} had it`
         : `${whoHad.length} of you had it`;
-      lines.push(`😱 Upset since recap: ${recapName(draw, top.winner)} d. ${recapName(draw, top.loser)} — ${sawIt}`);
+      lines.push(`😱 Upset on Day ${RECAP_DAY}: ${recapName(draw, top.winner)} d. ${recapName(draw, top.loser)} — ${sawIt}`);
     }
     let bold = null;
     for (const t of todayAll) {
@@ -522,7 +552,7 @@ function generateRecapText() {
       const parts = [`${pct}% (${todayFam.correct}/${todayFam.total})`];
       if (todayFam.unanimousCorrect.length) parts.push(`${todayFam.unanimousCorrect.length} unanimous right`);
       if (todayFam.unanimousWrong.length) parts.push(`${todayFam.unanimousWrong.length} unanimous wrong`);
-      lines.push(`📊 Family since recap: ${parts.join(' · ')}`);
+      lines.push(`📊 Family on Day ${RECAP_DAY}: ${parts.join(' · ')}`);
       if (todayFam.unanimousWrong.length) {
         const u = todayFam.unanimousWrong[0];
         lines.push(`   (oops — we all picked ${DRAWS[u.event][u.familyPick].name})`);
@@ -1219,7 +1249,10 @@ function todaysMatches() {
     if (r < 0) continue;
     const m = matchOfSlot(a, r);
     const [ca, cb] = matchContenders(state.results[t.ev], r, m);
-    if (!((ca === a && cb === b) || (ca === b && cb === a))) continue; // not both through yet
+    // Once feeder results exist, reject a stale schedule whose players are no
+    // longer the actual contenders. With no loaded results (safe local preview),
+    // still show the reviewed official schedule.
+    if (ca != null && cb != null && !((ca === a && cb === b) || (ca === b && cb === a))) continue;
     const res = state.results[t.ev]['r' + r][m];
     out.push({ ev: t.ev, r, m, a, b, court: t.court, order: t.order, time: t.time,
       played: res !== null && res !== undefined });
@@ -1261,42 +1294,55 @@ function fallenSeeds(ev) {
   return out.sort((x, y) => x.seed - y.seed);
 }
 
-// Read manually recorded winners changed since the commissioner checkpoint.
-// Unknown opponents are excluded from matchup-based highlights, not from scoring.
+// Read commissioner-entered winners for matches in the current recap day's
+// scheduled round. The checkpoint excludes results already covered by a prior
+// recap; the round guard prevents an incomplete checkpoint from pulling older
+// rounds into today's report.
 function recapDayMatches() {
+  const order = new Map(RECAP_ORDER_OF_PLAY.map(([event, round, match], index) =>
+    [`${event}:${round}:${match}`, index]));
   return EVENTS.flatMap(([event]) => diffTodayMatches(
     state.results[event], state.recapSnapshot && state.recapSnapshot[event], event
-  )).filter(match => match.loser != null);
+  )).filter(match => match.loser != null && order.has(`${match.event}:${match.r}:${match.m}`))
+    .sort((a, b) => order.get(`${a.event}:${a.r}:${a.m}`) - order.get(`${b.event}:${b.r}:${b.m}`));
+}
+
+function pointsFromMatches(entry, matches) {
+  return matches.reduce((total, match) => {
+    const pick = entry[match.event]['r' + match.r][match.m];
+    const prior = state.recapSnapshot?.[match.event]?.['r' + match.r]?.[match.m];
+    const currentPoints = pick === match.winner ? ROUND_POINTS[match.r] : 0;
+    const priorPoints = prior !== null && prior !== undefined && pick === prior ? ROUND_POINTS[match.r] : 0;
+    return total + currentPoints - priorPoints;
+  }, 0);
 }
 
 // ---- daily recap page (visible to everyone, refreshes as results come in) ----
 // Same beats as the shareable text recap (generateRecapText), rendered as a page.
 function dailyRecapView() {
-  const { dateStr } = tournamentDay();
+  const { label: recapLabel } = tournamentDay();
   let html = `<div class="daily-head">
-    <div class="dh-day">${hasResults() ? 'Latest recap' : 'Before play'} <span class="dh-sep">|</span> ${esc(ROUND_NAMES[currentRoundIndex()])}</div>
-    <div class="dh-date">${esc(dateStr)}</div>
+    <div class="dh-day">${hasResults() ? 'Latest recap' : 'Before play'}</div>
+    <div class="dh-date">${esc(recapLabel)}</div>
   </div>`;
 
-  // Compare with the last manually saved recap checkpoint. No schedule required.
+  // Compare with the saved checkpoint, then keep only this day's scheduled round.
   const dayMatches = recapDayMatches();
-  const prevRes = { men: normalizePicks(state.recapSnapshot?.men), women: normalizePicks(state.recapSnapshot?.women) };
-
   const totalPlayed = playedCount(state.results.men) + playedCount(state.results.women);
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
     const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
     const sm = score(mp, state.results.men), sw = score(wp, state.results.women);
     const total = sm.total + sw.total;
-    const prev = score(mp, prevRes.men).total + score(wp, prevRes.women).total;
-    return { id: e.id, name: e.name, men: mp, women: wp, total, prev, today: total - prev, correct: sm.correct + sw.correct };
+    const entry = { men: mp, women: wp };
+    const today = pointsFromMatches(entry, dayMatches);
+    return { id: e.id, name: e.name, men: mp, women: wp, total, prev: total - today, today, correct: sm.correct + sw.correct };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
   if (raw.length === 0) {
     return html + `<div class="panel"><p class="muted">No brackets yet.</p></div>`;
   }
 
-  // Changed manual results shared by Leaders + Highlights.
-  const snap = prevRes; // "before today" state, used for champion-down / movement
+  // Day-scoped results shared by Leaders + Highlights.
   const todayAll = dayMatches;
   const todayPoints = {}, todayCorrect = {};
   raw.forEach(e => { todayPoints[e.id] = e.total - e.prev; todayCorrect[e.id] = 0; });
@@ -1326,7 +1372,7 @@ function dailyRecapView() {
       const delta = prevRank[e.id] - rank;
       const move = delta > 0 ? `<span class="up">▲${delta}</span>` : delta < 0 ? `<span class="down">▼${-delta}</span>` : `<span class="flat">–</span>`;
       day = `<div class="dp-day"><div class="dp-drow"><span class="dp-pp">${todayPoints[e.id] >= 0 ? '+' : ''}${todayPoints[e.id].toLocaleString()}</span> ${move}</div>
-        <div class="dp-dsub">${todayCorrect[e.id]}/${todayAll.length} since recap</div></div>`;
+        <div class="dp-dsub">${todayCorrect[e.id]}/${todayAll.length} on Day ${RECAP_DAY}</div></div>`;
     }
     return `<div class="dp-card${rankCls}">${badge}
       <div class="dp-name">${esc(e.name)}</div>
@@ -1348,7 +1394,7 @@ function dailyRecapView() {
     if (maxToday > 0) {
       const top = raw.filter(e => todayPoints[e.id] === maxToday);
       const picks = top.length === 1 ? ` (${todayCorrect[top[0].id]}/${todayAll.length} correct)` : '';
-      html += beat('📈', 'Most points since recap:', `${esc(nameList(top.map(e => e.name)))} +${maxToday.toLocaleString()}${picks}`);
+      html += beat('📈', `Most points on Day ${RECAP_DAY}:`, `${esc(nameList(top.map(e => e.name)))} +${maxToday.toLocaleString()}${picks}`);
     }
     // Biggest climb since recap = biggest climb in the standings.
     const climb = {};
@@ -1356,7 +1402,7 @@ function dailyRecapView() {
     const maxClimb = Math.max(0, ...raw.map(e => climb[e.id]));
     if (maxClimb > 0) {
       const climbers = raw.filter(e => climb[e.id] === maxClimb).map(e => e.name);
-      html += beat('🧗', 'Biggest climb since recap:', `${esc(nameList(climbers))} — up ${maxClimb} ${maxClimb === 1 ? 'place' : 'places'}`);
+      html += beat('🧗', `Biggest climb on Day ${RECAP_DAY}:`, `${esc(nameList(climbers))} — up ${maxClimb} ${maxClimb === 1 ? 'place' : 'places'}`);
     }
     // Upset since recap.
     const todayUpsets = todayAll.map(t => {
@@ -1370,14 +1416,14 @@ function dailyRecapView() {
       const whoHad = raw.filter(e => e[top.event]['r' + top.r][top.m] === top.winner).map(e => e.name);
       const sawIt = whoHad.length === 0 ? 'nobody saw it coming'
         : whoHad.length === 1 ? `only ${whoHad[0]} had it` : `${whoHad.length} of you had it`;
-      html += beat('😱', 'Upset since recap:', `${esc(recapName(draw, top.winner))} def. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
+      html += beat('😱', `Upset on Day ${RECAP_DAY}:`, `${esc(recapName(draw, top.winner))} def. ${esc(recapName(draw, top.loser))} — ${esc(sawIt)}`);
     }
     // Champion picks knocked out today.
     const champLosses = [];
     for (const e of raw) {
       const mch = e.men.r6[0], wch = e.women.r6[0];
-      if (mch !== null && isAlive(mch, snap.men) && !isAlive(mch, state.results.men)) champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
-      if (wch !== null && isAlive(wch, snap.women) && !isAlive(wch, state.results.women)) champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
+      if (mch !== null && todayAll.some(t => t.event === 'men' && t.loser === mch)) champLosses.push(`${e.name} lost ${DRAWS.men[mch].name} (men's)`);
+      if (wch !== null && todayAll.some(t => t.event === 'women' && t.loser === wch)) champLosses.push(`${e.name} lost ${DRAWS.women[wch].name} (women's)`);
     }
     if (champLosses.length) html += beat('💀', 'Champion pick down:', esc(champLosses.join('; ')));
 
@@ -1385,7 +1431,7 @@ function dailyRecapView() {
     const fam = familyStats(raw, todayAll);
     if (fam.total > 0) {
       const pct = Math.round(fam.correct / fam.total * 100);
-      html += beat('📊', 'Family since recap:', `${pct}% (${fam.correct}/${fam.total})`);
+      html += beat('📊', `Family on Day ${RECAP_DAY}:`, `${pct}% (${fam.correct}/${fam.total})`);
       const N = raw.length;
       // Every card gets the same second line: how many brackets were live and
       // the win–loss tally among them — "Active in 6 brackets (6–0)" for a
@@ -1508,12 +1554,16 @@ function dailyRecapView() {
 
   // Seed map shows the full tournament picture: surviving seeds highlighted,
   // eliminated seeds muted. The list beneath remains scoped to this recap only.
-  const seedMap = (ev) => {
+  const seedMap = (ev, fell) => {
     const alive = aliveSeedSet(ev);
-    let grid = '<div class="seed-grid" aria-label="Seed status; highlighted seeds remain in the tournament">';
+    const dayOut = new Set(fell.map(seed => seed.seed));
+    let grid = `<div class="seed-grid" aria-label="Seed status through Day ${RECAP_DAY}; yellow seeds went out today, blue seeds remain">`;
     for (let n = 1; n <= 32; n++) {
       const isAlive = alive.has(n);
-      grid += `<span class="seed-chip${isAlive ? '' : ' out'}" aria-label="Seed ${n}: ${isAlive ? 'still in' : 'out'}">${n}</span>`;
+      const wentOutToday = dayOut.has(n);
+      const cls = isAlive ? '' : wentOutToday ? ' day-out' : ' out';
+      const status = isAlive ? 'still in' : wentOutToday ? `eliminated on Day ${RECAP_DAY}` : `eliminated before Day ${RECAP_DAY}`;
+      grid += `<span class="seed-chip${cls}" aria-label="Seed ${n}: ${status}">${n}</span>`;
     }
     return grid + '</div>';
   };
@@ -1525,9 +1575,9 @@ function dailyRecapView() {
       .map(t => ({ seed: draw[t.loser].seed, name: draw[t.loser].name, by: draw[t.winner].name }))
       .filter(x => x.seed).sort((a, b) => a.seed - b.seed);
     const body = fell.length ? fList(fell) : `<p class="muted small" style="margin:0">No seeds fell.</p>`;
-    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev)}${body}</div>`;
+    return `<div class="fallen-col"><div class="fc-head">${lbl}</div>${seedMap(ev, fell)}${body}</div>`;
   };
-  html += `<div class="panel"><h2>📉 Seeds Out Since Last Recap</h2><div class="fallen2">
+  html += `<div class="panel"><h2>📉 Seeds Out on Day ${RECAP_DAY}</h2><div class="fallen2">
     ${fColumn('men', 'Men')}
     ${fColumn('women', 'Women')}
   </div></div>`;
@@ -1556,17 +1606,16 @@ function dailyRecapView() {
 // and the day's two headline beats.
 function shareCardView() {
   const res = state.results;
-  const prevRes = state.recapSnapshot
-    ? { men: state.recapSnapshot.men, women: state.recapSnapshot.women }
-    : { men: emptyPicks(), women: emptyPicks() };
+  const todayAll = recapDayMatches();
   const played = playedCount(res.men) + playedCount(res.women);
   const raw = Object.values(state.entries).filter(e => e.name).map(e => {
     const mp = normalizePicks(e.men), wp = normalizePicks(e.women);
     const men = score(mp, res.men), women = score(wp, res.women);
     const total = men.total + women.total;
-    const prev = score(mp, prevRes.men).total + score(wp, prevRes.women).total;
+    const entry = { men: mp, women: wp };
+    const today = pointsFromMatches(entry, todayAll);
     return {
-      id: e.id, name: e.name, total, today: total - prev,
+      id: e.id, name: e.name, total, today,
       menPts: men.total, womenPts: women.total, correct: men.correct + women.correct,
     };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
@@ -1595,10 +1644,8 @@ function shareCardView() {
   const maxToday = Math.max(0, ...raw.map(e => e.today));
   if (maxToday > 0) {
     const movers = raw.filter(e => e.today === maxToday).map(e => e.name);
-    beats.push(`<div class="sc-beat">📈 <b>Most points since recap</b> — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})</div>`);
+    beats.push(`<div class="sc-beat">📈 <b>Most points on Day ${RECAP_DAY}</b> — ${esc(nameList(movers))} (+${maxToday.toLocaleString()})</div>`);
   }
-  const snap = state.recapSnapshot || { men: emptyPicks(), women: emptyPicks() };
-  const todayAll = [...diffTodayMatches(res.men, snap.men, 'men'), ...diffTodayMatches(res.women, snap.women, 'women')];
   const upsets = todayAll.map(t => {
     const d = DRAWS[t.event];
     const ws = d[t.winner].seed || 99, ls = d[t.loser].seed || 99;
@@ -1606,7 +1653,7 @@ function shareCardView() {
   }).filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap);
   if (upsets.length) {
     const u = upsets[0], d = DRAWS[u.event];
-    beats.push(`<div class="sc-beat">😱 <b>Upset since recap</b> — ${esc(recapName(d, u.winner))} def. ${esc(recapName(d, u.loser))}</div>`);
+    beats.push(`<div class="sc-beat">😱 <b>Upset on Day ${RECAP_DAY}</b> — ${esc(recapName(d, u.winner))} def. ${esc(recapName(d, u.loser))}</div>`);
   }
 
   return `<div class="share-wrap">
@@ -1618,7 +1665,7 @@ function shareCardView() {
       <div class="sc-top">
         <div class="sc-emoji">🎾</div>
         <div class="sc-brand">Kiwi House Bracket</div>
-        <div class="sc-meta">${hasResults() ? 'Latest recap through 1st round' : 'Before play'}</div>
+        <div class="sc-meta">${hasResults() ? `Latest recap through Day ${RECAP_DAY}` : 'Before play'}</div>
       </div>
       <div class="sc-standings">${rows}</div>
       ${beats.length ? `<div class="sc-beats">${beats.join('')}</div>` : ''}
@@ -1890,9 +1937,9 @@ async function copyFinalRecap() {
 function commissionerRecapPanel() {
   const recapText = generateRecapText();
   let html = `<div class="panel"><h2>Daily recap</h2>
-    <p class="muted small">A shareable summary built from the results that have
-      changed since the last recap. Copy it into your family chat, then mark it
-      as sent so the next recap diffs from this point.</p>`;
+    <p class="muted small">A shareable summary of completed Day ${RECAP_DAY}
+      matches in the scheduled round. Copy it into your family chat, then mark
+      it as sent to save the next recap checkpoint.</p>`;
   html += `<textarea class="recap-text" readonly rows="22">${esc(recapText)}</textarea>`;
   html += `<div class="recap-actions">
     <button class="btn" data-action="copy-recap">Copy recap</button>
@@ -2281,12 +2328,15 @@ function playerProfileCardHTML(ev, slot, pair, inline = false) {
       <div class="pm-status ${status.alive ? 'alive' : 'out'}"><strong>${status.alive ? '●' : '×'} ${esc(status.label)}</strong><span>${esc(status.detail)}</span></div>
       ${poolImpact}
       ${hasPair ? matchupReferenceHTML(ev, pair) : ''}
-      ${row('Country', esc(countryName(cc)) || '—')}
-      ${row('Age', age != null ? age : '—')}
-      ${row('Plays', plays)}
-      ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
-      ${row('Highest ranking', fmtRank(p.high))}
-      ${row('Singles titles', typeof p.titles === 'number' ? p.titles : '—')}
+      <div class="pm-sub">Player details</div>
+      <div class="pm-facts">
+        ${row('Country', esc(countryName(cc)) || '—')}
+        ${row('Age', age != null ? age : '—')}
+        ${row('Plays', plays)}
+        ${row(`Current ${tour} ranking`, fmtRank(p.rank))}
+        ${row('Highest ranking', fmtRank(p.high))}
+        ${row('Singles titles', typeof p.titles === 'number' ? p.titles : '—')}
+      </div>
 
       <div class="pm-sub">Grand Slam bests</div>
       <div class="pm-slams">

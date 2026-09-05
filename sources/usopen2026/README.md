@@ -11,6 +11,10 @@ Each event has 128 numbered positions. The women's sheet retains seeds 1–32; t
 
 The September 3 recheck records four post-draw replacements without importing any match result: Thanasi Kokkinakis → Yunchaokete Bu (L), Casper Ruud → Arthur Gea (L), Marin Cilic → Otto Virtanen (L), and Tereza Valentova → Darja Semenistaja (L). Existing slot numbers were preserved so saved brackets and manual results remain attached to the correct draw positions.
 
+`day6-order-of-play.txt` preserves the 16 men's and women's singles matches from the official September 4 schedule PDF. It supplies only the recap's reviewed match scope and order. The website does not fetch this schedule or any results at runtime, and winners still come exclusively from commissioner-entered Firestore results.
+
+`day7-order-of-play.txt` preserves the 16 singles matches from the official September 5 schedule PDF. It supplies display-only schedule information for Matches to Watch; it neither imports results nor writes to Firestore.
+
 Country codes are converted from the PDF's three-letter codes to ISO alpha-2 for flags. Where the official sheet omits country, it stays blank. Optional biography fields remain null in the official draw module; the player cards now overlay a separately sourced historical reference snapshot from `player-reference.js`. See `../player-reference/README.md` for dates, provenance and limitations. Wimbledon biography values are not treated as current facts. Seed numbers are not substituted for rankings.
 
 Before accepting picks, review these static draws against the official sheets for any subsequent withdrawals/replacements. Once picks exist, never reorder positions; changes need explicit commissioner review.
